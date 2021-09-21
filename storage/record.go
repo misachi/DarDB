@@ -1,74 +1,63 @@
 package storage
 
 import (
-	"fmt"
-	"unsafe"
+	"reflect"
+	"sync"
+	"github.com/misachi/DarDB/util"
 )
-
-type Record interface {
-	GetField(fieldName string, idx int) Pair
-	CreateField(fieldName string, value interface{})
-	UpdateField(fieldName string, value interface{}) error
-	RemoveField(fieldName string) error
-}
-
-type Pair struct {
-	First, Second interface{}
-}
-
-func NewPair(first string, second interface{}) (*Pair, error) {
-	switch second.(type) {
-	case int8:
-		return &Pair{first, second.(int8)}, nil
-	case int16:
-		return &Pair{first, second.(int16)}, nil
-	case int32:
-		return &Pair{first, second.(int32)}, nil
-	case int64:
-		return &Pair{first, second.(int64)}, nil
-	case float32:
-		return &Pair{first, second.(float32)}, nil
-	case float64:
-		return &Pair{first, second.(float64)}, nil
-	case string:
-		return &Pair{first, second.(string)}, nil
-	default:
-		return nil, fmt.Errorf("Unsupported type %T", second)
-	}
-}
 
 type RecordHeader struct {
 	NullField interface{}
-	Location  []Pair
+	Location  []util.Pair
 }
 
 type VarLengthRecord struct {
 	RecordHeader
-	Field []Pair
+	Field []interface{}
+	mtx   *sync.Mutex
 }
+
 type FixedLengthRecord struct {
-	Field []Pair
+	Field []interface{}
+	mtx   *sync.Mutex
 }
 
-func (v VarLengthRecord) fiedIsNull(idx int) bool { return (v.NullField.(int) & idx) >= 1 }
+func (v VarLengthRecord) fieldIsNull(idx int16) bool { return (v.NullField.(int16) & idx) >= 1 }
 
-func (v *VarLengthRecord) GetField(fieldName string, idx int) *Pair {
-	if idx >= 0 && !v.fiedIsNull(idx) {
+func (v *VarLengthRecord) GetField(idx int16) interface{} {
+	if idx >= 0 && !v.fieldIsNull(idx) {
 		return &v.Field[idx]
 	}
 	return nil
 }
 
 func (v *VarLengthRecord) CreateField(fieldName string, value interface{}) {
-	newField, err := NewPair(fieldName, value)
-	if err != nil {
-		panic(err)
-	}
-	location := Pair{len(v.Location), unsafe.Sizeof(newField.Second)}
+	v.mtx.Lock()
+	defer v.mtx.Unlock()
+
+	location := util.Pair{len(v.Location), reflect.TypeOf(value).Size()}
 	v.Location[cap(v.Location)] = location
-	v.Field[cap(v.Field)] = *newField
+	v.Field[cap(v.Field)] = value
 }
 
-func (v *VarLengthRecord) UpdateField(fieldName string, value interface{}) error {
+func (v *VarLengthRecord) UpdateField(idx int16, value interface{}) {
+	v.mtx.Lock()
+	defer v.mtx.Unlock()
+	v.Field[idx] = value
+}
 
+func (v *FixedLengthRecord) GetField(idx int16) interface{} {
+	return &v.Field[idx]
+}
+
+func (v *FixedLengthRecord) CreateField(fieldName string, value interface{}) {
+	v.mtx.Lock()
+	defer v.mtx.Unlock()
+	v.Field[cap(v.Field)] = value
+}
+
+func (v *FixedLengthRecord) UpdateField(idx int16, value interface{}) {
+	v.mtx.Lock()
+	defer v.mtx.Unlock()
+	v.Field[idx] = value
 }

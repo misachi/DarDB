@@ -2,6 +2,13 @@ package util
 
 import "reflect"
 
+const (
+	VarRecord = iota
+	FixedRecord
+	VarField
+	FixedField
+)
+
 type Pair struct {
 	First, Second interface{}
 }

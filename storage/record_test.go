@@ -1,6 +1,10 @@
 package storage
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/misachi/DarDB/util"
+)
 
 func TestLocationPairOffset(t *testing.T) {
 	off, size := Location_T(1), Location_T(2)
@@ -23,7 +27,7 @@ func TestLocationPairSize(t *testing.T) {
 func TestIsNull(t *testing.T) {
 	bit := NullField_T(1) << 1
 	null := NullField_T(2)
-	if isNull(bit, null) {
+	if util.IsNull(bit, null) {
 		t.Fatal("Bit is not set: Field is empty")
 	}
 }

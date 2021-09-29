@@ -1,11 +1,12 @@
 package storage
 
 import (
+	"math/rand"
 	"sync"
-)
+	"time"
 
-type Location_T uint16 // Type Location offset and size
-type NullField_T int
+	"github.com/misachi/DarDB/util"
+)
 
 type LocationPair struct {
 	offset Location_T
@@ -32,8 +33,16 @@ type FixedLengthRecord struct {
 	mtx       *sync.Mutex
 }
 
-func isNull(bit, nullField NullField_T) bool                    { return (nullField & bit) < 1 }
-func (v *VarLengthRecord) fieldIsNull(bitmask NullField_T) bool { return isNull(bitmask, v.nullField) }
+// Given the field name return the index in the record
+func getFieldIndex(fieldName string) int {
+	// TODO Change implementation once catalogue is complete
+	rand.Seed(time.Now().UnixNano())
+	return rand.Int()
+}
+
+func (v *VarLengthRecord) fieldIsNull(bitmask NullField_T) bool {
+	return util.IsNull(bitmask, v.nullField)
+}
 func (v *VarLengthRecord) Location(offset Location_T) *LocationPair {
 	for _, loc := range v.location {
 		if loc.offset == offset {
@@ -55,14 +64,23 @@ func (v *VarLengthRecord) AddField(fieldName string, value []byte) {
 	v.mtx.Lock()
 	defer v.mtx.Unlock()
 
-	location := LocationPair{Location_T(len(v.location)), Location_T(len(value))}
-	v.location[Location_T(len(v.location))] = location
-	v.field = append(v.field, value...)
+	locLen := len(v.location)
+	var bufSize Location_T
+	for _, loc := range v.location {
+		bufSize += loc.size
+	}
+	v.location[locLen] = LocationPair{Location_T(len(v.field)), Location_T(len(value))}
+	v.field = append(
+		v.field[:len(v.field) - int(bufSize)],
+		append(value, v.field[len(v.field) - int(bufSize):]...)...)
+	fieldIdx := getFieldIndex(fieldName) - locLen
+	v.nullField = v.nullField | NullField_T(1)
 }
 
-func (v *VarLengthRecord) UpdateField(idx int16, value []byte) {
+func (v *VarLengthRecord) UpdateField(fieldName string, value []byte) {
 	v.mtx.Lock()
 	defer v.mtx.Unlock()
+	fieldIdx := getFieldIndex(fieldName)
 	v.field = append(v.field, value...)
 }
 
@@ -70,9 +88,11 @@ func (f FixedLengthRecord) getFieldSize(idx NullField_T) int {
 	table := []int{1, 2, 3, 4, 5, 6}
 	return table[idx]
 }
-func (f *FixedLengthRecord) fieldIsNull(bit NullField_T) bool { return isNull(bit, f.nullField) }
+func (f *FixedLengthRecord) fieldIsNull(bit NullField_T) bool { return util.IsNull(bit, f.nullField) }
 func (f *FixedLengthRecord) GetField(offset Location_T, idx NullField_T) []byte {
-	return f.field[:]
+	if f.fieldIsNull(idx) {
+		return nil
+	}
 	return f.field[offset : offset+Location_T(f.getFieldSize(idx))]
 }
 
@@ -80,9 +100,10 @@ func (f *FixedLengthRecord) AddField(fieldName string, value []byte) {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
 	f.field = append(f.field, value...)
+	f.nullField = f.nullField | NullField_T(getFieldIndex(fieldName))
 }
 
-func (f *FixedLengthRecord) UpdateField(idx int16, value []byte) {
+func (f *FixedLengthRecord) UpdateField(fieldName string, value []byte) {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
 	f.field = append(f.field, value...)

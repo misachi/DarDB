@@ -13,6 +13,8 @@ type Pair struct {
 	First, Second interface{}
 }
 
+func IsNull(bit, nullField NullField_T) bool { return (nullField & bit) < 1 }
+
 func SizeOf(val reflect.Type) uint {
 	switch val.Kind() {
 	case reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,

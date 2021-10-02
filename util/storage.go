@@ -1,6 +1,8 @@
 package util
 
-import "reflect"
+import (
+	"reflect"
+)
 
 const (
 	VarRecord = iota
@@ -12,8 +14,6 @@ const (
 type Pair struct {
 	First, Second interface{}
 }
-
-func IsNull(bit, nullField NullField_T) bool { return (nullField & bit) < 1 }
 
 func SizeOf(val reflect.Type) uint {
 	switch val.Kind() {

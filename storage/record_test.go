@@ -24,7 +24,7 @@ func TestLocationPairSize(t *testing.T) {
 }
 
 func TestIsNull(t *testing.T) {
-	bit := NullField_T(1) << 1
+	bit := NullField_T(1)
 	null := NullField_T(2)
 	if IsNull(bit, null) {
 		t.Fatal("Bit is not set: Field is empty")
@@ -86,17 +86,47 @@ func TestGetTypeSize(t *testing.T) {
 }
 
 func TestNewVarLengthRecord(t *testing.T) {
-	data := []byte("4\n0,2:2,3:5,2\nitwasyou")
-	record, err := NewVarLengthRecord(data)
-	if err != nil {
-		t.Errorf("Create record error: %v", err)
+	type valType struct {
+		given         []byte
+		wantNullField NullField_T
+		wantLocation  []LocationPair
+		wantField     []byte
+	}
+	values := []valType{
+		{
+			given:         []byte("1\n0,2:2,3:5,2\nitwasyou"),
+			wantNullField: 1,
+			wantLocation:  []LocationPair{{0, 2}, {2, 3}, {5, 2}},
+			wantField:     []byte("itwasyou"),
+		},
+		{
+			given:         []byte("15\n10,2:12,3:15,2\n12:34:56:itwasyou"),
+			wantNullField: 15,
+			wantLocation:  []LocationPair{{10, 2}, {12, 3}, {15, 2}},
+			wantField:     []byte("12:34:56:itwasyou"),
+		},
 	}
 
-	if record.nullField != 4 {
-		t.Errorf("Expected nullField to be %d but got %d", 4, record.nullField)
-	}
-	if !bytes.Equal(record.field, []byte("itwasyou")) {
-		t.Errorf("Field should be equal: %s", record.field)
+	for _, value := range values {
+		record, err := NewVarLengthRecord(value.given)
+		if err != nil {
+			t.Errorf("Create record error: %v", err)
+		}
+
+		if record.nullField != value.wantNullField {
+			t.Errorf("Expected nullField to be %d but got %d", 4, record.nullField)
+		}
+
+		for i := 0; i < len(value.wantLocation); i++ {
+			loc := value.wantLocation[i]
+			if loc.offset != record.location[i].offset || loc.size != record.location[i].size {
+				t.Errorf("Expected offset: %d and size %d", loc.offset, loc.size)
+			}
+		}
+
+		if !bytes.Equal(record.field, value.wantField) {
+			t.Errorf("Field should be equal: %s", record.field)
+		}
 	}
 }
 
@@ -126,6 +156,152 @@ func TestSetLocation(t *testing.T) {
 			lp := *loc
 			if lp[i].offset != val.wantValue[i].offset || lp[i].size != val.wantValue[i].size {
 				t.Errorf("Expected offset: %d and size: %d\nbut got\noffset: %d and size: %d", val.wantValue[i].offset, val.wantValue[i].size, lp[i].offset, lp[i].size)
+			}
+		}
+	}
+}
+
+func TestGetField(t *testing.T) {
+	type valType struct {
+		given      []byte
+		givenField string
+		wantValue  []byte
+	}
+	data := []byte("127\n14,2:16,3:19,2\n12:34:1467:56\nitwasyou")
+	values := []valType{
+		{
+			given:      data,
+			givenField: "field1",
+			wantValue:  []byte("12"),
+		},
+		{
+			given:      data,
+			givenField: "field2",
+			wantValue:  []byte("34"),
+		},
+		{
+			given:      data,
+			givenField: "field3",
+			wantValue:  []byte("1467"),
+		},
+		{
+			given:      data,
+			givenField: "field4",
+			wantValue:  []byte("56"),
+		},
+		{
+			given:      data,
+			givenField: "field5",
+			wantValue:  []byte("it"),
+		},
+		{
+			given:      data,
+			givenField: "field6",
+			wantValue:  []byte("was"),
+		},
+		{
+			given:      data,
+			givenField: "field8",
+			wantValue:  nil,
+		},
+	}
+
+	for _, val := range values {
+		record, err := NewVarLengthRecord(val.given)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		if fieldVal := record.GetField(val.givenField); !bytes.Equal(fieldVal, val.wantValue) {
+			t.Errorf("Expected %s but found %s", val.wantValue, fieldVal)
+		}
+	}
+}
+
+func TestUpdateField(t *testing.T) {
+	type valType struct {
+		givenData     []byte
+		givenField    string
+		givenValue    []byte
+		wantData      []byte
+		wantValue     []byte
+		wantNullField NullField_T
+		wantLocation  []LocationPair
+	}
+	values := []valType{
+		{
+			givenData:     []byte("127\n14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
+			givenField:    "field3",
+			givenValue:    []byte("146"),
+			wantValue:     []byte("146"),
+			wantData:      []byte("12:34:146:56\nitwasyou"),
+			wantNullField: 127,
+			wantLocation: []LocationPair{
+				{14,2}, {16,3}, {19, 3},
+			},
+		},
+		{
+			givenData:     []byte("127\n14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
+			givenField:    "field4",
+			givenValue:    []byte(""),
+			wantValue:     []byte(""),
+			wantData:      []byte("12:34:1467:\nitwasyou"),
+			wantNullField: 119,
+			wantLocation: []LocationPair{
+				{14,2}, {16,3}, {19, 3},
+			},
+		},
+		{
+			givenData:     []byte("127\n14,2:16,3:19,3\n12:900000:1467:56\nitwasyou"),
+			givenField:    "field2",
+			givenValue:    []byte("900000"),
+			wantValue:     []byte("900000"),
+			wantData:      []byte("12:900000:1467:56\nitwasyou"),
+			wantNullField: 127,
+			wantLocation: []LocationPair{
+				{14,2}, {16,3}, {19, 3},
+			},
+		},
+		{
+			givenData:     []byte("127\n13,2:15,3:18,3\n12:34:146:56\nitwasyou"),
+			givenField:    "field5",
+			givenValue:    []byte("she"),
+			wantValue:     []byte("she"),
+			wantData:      []byte("12:34:146:56\nshewasyou"),
+			wantNullField: 127,
+			wantLocation: []LocationPair{
+				{13,3}, {16,3}, {19, 3},
+			},
+		},
+		{
+			givenData:     []byte("127\n13,2:15,3:18,3\n12:34:146:56\nitwasyou"),
+			givenField:    "field7",
+			givenValue:    []byte("he"),
+			wantValue:     []byte("he"),
+			wantData:      []byte("12:34:146:56\nitwashe"),
+			wantNullField: 127,
+			wantLocation: []LocationPair{
+				{13,2}, {15,3}, {18, 2},
+			},
+		},
+	}
+	for _, val := range values {
+		record, err := NewVarLengthRecord(val.givenData)
+		if err != nil {
+			t.Errorf("%v", err)
+		}
+		record.UpdateField(val.givenField, val.givenValue)
+		if fieldVal := record.GetField(val.givenField); !bytes.Equal(fieldVal, val.wantValue) {
+			t.Errorf("Expected %s but found %s", val.wantValue, fieldVal)
+		}
+		if !bytes.Equal(record.field, val.wantData) {
+			t.Errorf("Expected data: %s \n\nbut found data: %s", val.wantData, record.field)
+		}
+		if record.nullField != val.wantNullField {
+			t.Errorf("Expected nullField: %d but found nullfield: %d", val.wantNullField, record.nullField)
+		}
+		for i, loc := range val.wantLocation {
+			if loc.offset != record.location[i].offset || loc.size != record.location[i].size {
+				t.Errorf("Expected offset: %d and size %d\nbut found offset: %d and size %d", loc.offset, loc.size, record.location[i].offset, record.location[i].size)
 			}
 		}
 	}

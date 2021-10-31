@@ -25,6 +25,13 @@ type LocationPair struct {
 	size   Location_T
 }
 
+func NewLocationPair(offset, size Location_T) *LocationPair {
+	return &LocationPair{
+		offset: offset,
+		size:   size,
+	}
+}
+
 func (l LocationPair) Offset() Location_T { return l.offset }
 func (l LocationPair) Size() Location_T   { return l.size }
 
@@ -39,19 +46,73 @@ type VarLengthRecord struct {
 	mtx   *sync.Mutex
 }
 
-func ByteArrayToInt(r io.Reader) (int, error) {
+func ByteArrayToInt(r io.Reader) (int64, error) {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return 0, fmt.Errorf("ByteArrayToInt io.ReadAll error: %v", err)
 	}
-	val, err := strconv.Atoi(*(*string)(unsafe.Pointer(&data)))
+	val, err := strconv.ParseInt(*(*string)(unsafe.Pointer(&data)), 10, 32)
 	if err != nil {
 		return val, fmt.Errorf("ByteArrayToInt strconv.Atoi error: %v", err)
 	}
 	return val, nil
 }
 
-func NewVarLengthRecord(data []byte) (*VarLengthRecord, error) {
+func NewVarLengthRecord(data [][]byte) (*VarLengthRecord, error) {
+	mu := &sync.Mutex{}
+	if len(data) < 1 {
+		return &VarLengthRecord{
+			recordHeader: recordHeader{0, []LocationPair{{0, 0}}},
+			field:        []byte{},
+			mtx:          mu,
+		}, nil
+	}
+	cols := NewColumnData()
+	var nullField NullField_T
+	var location []LocationPair
+	field := make([]byte, 0)
+	dataLen := len(data)
+	for i, key := range cols.keys {
+		if i >= dataLen {
+			nullField = nullField & ^(1 << i)
+			continue
+		}
+		_len := len(data[i])
+		if _len > 0 {
+			nullField = nullField | (1 << i)
+		}
+		if getTypeSize(key._type) < 0 {
+			var offset Location_T
+			if len(location) < 1 {
+				field = append(field, '\n')
+				offset = 0
+			} else {
+				offset = location[len(location)-1].offset + location[len(location)-1].size + 1
+			}
+			location = append(location, *NewLocationPair(offset, Location_T(_len)))
+		} else {
+			if i > 0 {
+				field = append(field, ':')
+			}
+		}
+		field = append(field, data[i]...)
+	}
+	return &VarLengthRecord{
+		recordHeader: recordHeader{nullField: nullField, location: location},
+		field:        field,
+		mtx:          mu,
+	}, nil
+}
+
+func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
+	mu := &sync.Mutex{}
+	if len(data) < 1 {
+		return &VarLengthRecord{
+			recordHeader: recordHeader{0, []LocationPair{{0, 0}}},
+			field:        []byte{},
+			mtx:          mu,
+		}, nil
+	}
 	termIdx := bytes.IndexByte(data, Term) // first terminator - for nullfield
 	newBuf := bytes.NewBuffer(data[:termIdx])
 	nField, err := ByteArrayToInt(newBuf)
@@ -70,7 +131,7 @@ func NewVarLengthRecord(data []byte) (*VarLengthRecord, error) {
 	return &VarLengthRecord{
 		recordHeader: recHDR,
 		field:        data[locationEnd+termIdx+2:],
-		mtx:          &sync.Mutex{},
+		mtx:          mu,
 	}, nil
 }
 
@@ -98,22 +159,20 @@ type columnData struct {
 	keys []column
 }
 
-var cols = columnData{
-	keys: []column{
-		{name: "field1", _type: "int"},
-		{name: "field2", _type: "float32"},
-		{name: "field3", _type: "uint32"},
-		{name: "field4", _type: "int64"},
-		{name: "field5", _type: "string"},
-		{name: "field6", _type: "string"},
-		{name: "field7", _type: "string"},
-		{name: "field8", _type: "string"},
-	},
-}
-
 func NewColumnData() columnData {
 	// returns columns and the associated types
-	return cols
+	return columnData{
+		keys: []column{
+			{name: "field1", _type: "int"},
+			{name: "field2", _type: "float32"},
+			{name: "field3", _type: "uint32"},
+			{name: "field4", _type: "int64"},
+			{name: "field5", _type: "string"},
+			{name: "field6", _type: "string"},
+			{name: "field7", _type: "string"},
+			{name: "field8", _type: "string"},
+		},
+	}
 }
 
 func (cd columnData) column(name string) (column, error) {

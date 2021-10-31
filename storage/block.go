@@ -3,44 +3,44 @@ package storage
 import (
 	"errors"
 	"fmt"
-
-	"github.com/misachi/DarDB/util"
 )
 
 var (
 	ErrBlockFull = errors.New("Block is full")
 )
 
-const BLKSIZE = 8192 // Size of block on disk
+const BLKSIZE = 4096 // Size of block on disk
 
 type Record interface {
-	GetField(idx uint16) util.Pair
-	CreateField(fieldName string, value interface{})
-	UpdateField(idx uint16, value interface{})
-}
-
-func NewLocationPair(offset, size Location_T) *LocationPair {
-	return &LocationPair{
-		offset: offset,
-		size:   size,
-	}
+	GetField(key string) []byte
+	UpdateField(key string, value []byte)
+	AddField(key string, value []byte)
 }
 
 type Block struct {
-	size             uint16         // Size of records(in bytes)
-	numEntryLocation uint16         // Number of records in block
-	entryLocation    []LocationPair // Contains list of two items (Record offset, Record size)
-	blockEntry       []byte
+	offset      uint           // start of block on file
+	size        uint16         // Size of records(in bytes)
+	numRecord   uint16         // Number of records in block
+	recLocation []LocationPair // Contains list of two items (Record offset, Record size)
+	record      []Record
 }
 
-func (b *Block) Size() uint16                     { return b.size }
-func (b *Block) NumEntry() uint16                 { return b.numEntryLocation }
-func (b *Block) Location(idx uint16) LocationPair { return b.entryLocation[idx] }
-func (b *Block) addLocationEntry(data []byte) {
-	offset := len(b.blockEntry)
+func NewBlock(data []byte) *Block {
+	if len(data) < 1 {
+		return &Block{}
+	}
+	return &Block{}
+}
+
+func (b *Block) Size() uint16      { return b.size }
+func (b *Block) NumRecord() uint16 { return b.numRecord }
+
+// func (b *Block) Location(idx uint16) LocationPair { return b.recLocation[idx] }
+func (b *Block) addRecord(data []byte) {
+	offset := len(b.record)
 	length := len(data)
 	locationPair := NewLocationPair(Location_T(offset), Location_T(length))
-	b.entryLocation = append(b.entryLocation, *locationPair)
+	b.recLocation = append(b.recLocation, *locationPair)
 }
 func (b *Block) Get(keys ...interface{}) {
 	// var record Record
@@ -50,7 +50,7 @@ func (b *Block) Get(keys ...interface{}) {
 	// }
 }
 func (b *Block) SetNumEntry() {
-	b.numEntryLocation += uint16(len(b.entryLocation))
+	b.numRecord += uint16(len(b.recLocation))
 }
 func (b *Block) SetSize(size uint16) error {
 	if err := b.checkSize(size); err != nil {
@@ -77,13 +77,10 @@ func (b *Block) Add(data []byte) error {
 	if err := b.SetSize(uint16(len(data))); err != nil {
 		return err
 	}
-	b.addLocationEntry(data)
+	b.addRecord(data)
 	b.SetNumEntry()
-	b.blockEntry = append(b.blockEntry, data...)
+	b.record = append(b.record) // data...)
 	return nil
-}
-func NewBlock() *Block {
-	return &Block{}
 }
 
 type BlockIterator struct {

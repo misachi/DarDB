@@ -85,7 +85,7 @@ func TestGetTypeSize(t *testing.T) {
 	}
 }
 
-func TestNewVarLengthRecord(t *testing.T) {
+func TestNewVarLengthRecordWithHDR(t *testing.T) {
 	type valType struct {
 		given         []byte
 		wantNullField NullField_T
@@ -108,7 +108,7 @@ func TestNewVarLengthRecord(t *testing.T) {
 	}
 
 	for _, value := range values {
-		record, err := NewVarLengthRecord(value.given)
+		record, err := NewVarLengthRecordWithHDR(value.given)
 		if err != nil {
 			t.Errorf("Create record error: %v", err)
 		}
@@ -207,7 +207,7 @@ func TestGetField(t *testing.T) {
 	}
 
 	for _, val := range values {
-		record, err := NewVarLengthRecord(val.given)
+		record, err := NewVarLengthRecordWithHDR(val.given)
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -236,7 +236,7 @@ func TestUpdateField(t *testing.T) {
 			wantData:      []byte("12:34:146:56\nitwasyou"),
 			wantNullField: 127,
 			wantLocation: []LocationPair{
-				{14,2}, {16,3}, {19, 3},
+				{14, 2}, {16, 3}, {19, 3},
 			},
 		},
 		{
@@ -247,18 +247,18 @@ func TestUpdateField(t *testing.T) {
 			wantData:      []byte("12:34:1467:\nitwasyou"),
 			wantNullField: 119,
 			wantLocation: []LocationPair{
-				{14,2}, {16,3}, {19, 3},
+				{14, 2}, {16, 3}, {19, 3},
 			},
 		},
 		{
-			givenData:     []byte("127\n14,2:16,3:19,3\n12:900000:1467:56\nitwasyou"),
+			givenData:     []byte("127\n14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
 			givenField:    "field2",
 			givenValue:    []byte("900000"),
 			wantValue:     []byte("900000"),
 			wantData:      []byte("12:900000:1467:56\nitwasyou"),
 			wantNullField: 127,
 			wantLocation: []LocationPair{
-				{14,2}, {16,3}, {19, 3},
+				{14, 2}, {16, 3}, {19, 3},
 			},
 		},
 		{
@@ -269,7 +269,7 @@ func TestUpdateField(t *testing.T) {
 			wantData:      []byte("12:34:146:56\nshewasyou"),
 			wantNullField: 127,
 			wantLocation: []LocationPair{
-				{13,3}, {16,3}, {19, 3},
+				{13, 3}, {16, 3}, {19, 3},
 			},
 		},
 		{
@@ -280,12 +280,12 @@ func TestUpdateField(t *testing.T) {
 			wantData:      []byte("12:34:146:56\nitwashe"),
 			wantNullField: 127,
 			wantLocation: []LocationPair{
-				{13,2}, {15,3}, {18, 2},
+				{13, 2}, {15, 3}, {18, 2},
 			},
 		},
 	}
 	for _, val := range values {
-		record, err := NewVarLengthRecord(val.givenData)
+		record, err := NewVarLengthRecordWithHDR(val.givenData)
 		if err != nil {
 			t.Errorf("%v", err)
 		}
@@ -303,6 +303,51 @@ func TestUpdateField(t *testing.T) {
 			if loc.offset != record.location[i].offset || loc.size != record.location[i].size {
 				t.Errorf("Expected offset: %d and size %d\nbut found offset: %d and size %d", loc.offset, loc.size, record.location[i].offset, record.location[i].size)
 			}
+		}
+	}
+}
+
+func TestNewVarLengthRecord(t *testing.T) {
+	type valType struct {
+		given      [][]byte
+		wantRecord VarLengthRecord
+	}
+
+	values := []valType{
+		{
+			given: [][]byte{[]byte("12"), []byte("23846"), []byte("-983738"), []byte("83456"), []byte("Hello World")},
+			wantRecord: VarLengthRecord{
+				recordHeader: recordHeader{nullField: 31, location: []LocationPair{{Location_T(0), Location_T(11)}}},
+				field:        []byte("12:23846:-983738:83456\nHello World"),
+			},
+		},
+		{
+			given: [][]byte{[]byte("12"), []byte("23846"), []byte("-983738"), []byte(""), []byte("Hello World"), []byte("Power to the People")},
+			wantRecord: VarLengthRecord{
+				recordHeader: recordHeader{nullField: 55, location: []LocationPair{{0, 11}, {12, 19}}},
+				field:        []byte("12:23846:-983738:\nHello WorldPower to the People"),
+			},
+		},
+	}
+
+	for _, val := range values {
+		record, err := NewVarLengthRecord(val.given)
+		if err != nil {
+			t.Error(err)
+		}
+		if record.nullField != val.wantRecord.nullField {
+			t.Errorf("Expected nullField to be %d but got %d", val.wantRecord.nullField, record.nullField)
+		}
+
+		for i := 0; i < len(val.wantRecord.location); i++ {
+			loc := val.wantRecord.location[i]
+			if loc.offset != record.location[i].offset || loc.size != record.location[i].size {
+				t.Errorf("Expected offset: %d and size %d\nbut got offset: %d and size %d", loc.offset, loc.size, record.location[i].offset, record.location[i].size)
+			}
+		}
+
+		if !bytes.Equal(record.field, val.wantRecord.field) {
+			t.Errorf("Expected field: %s but got %s", val.wantRecord.field, record.field)
 		}
 	}
 }

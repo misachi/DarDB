@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 )
@@ -18,76 +19,83 @@ type Record interface {
 }
 
 type Block struct {
-	offset      uint           // start of block on file
-	size        uint16         // Size of records(in bytes)
-	numRecord   uint16         // Number of records in block
+	size        int            // Current size of bloc contents on storage device
 	recLocation []LocationPair // Contains list of two items (Record offset, Record size)
-	record      []Record
+	records     []byte
 }
 
-func NewBlock(data []byte) *Block {
-	if len(data) < 1 {
-		return &Block{}
-	}
+type BlockMgr struct {
+	block      []Block // Blocs in memory
+	freeBlocks []Block
+}
+
+func NewBlock() *Block {
 	return &Block{}
 }
 
-func (b *Block) Size() uint16      { return b.size }
-func (b *Block) NumRecord() uint16 { return b.numRecord }
-
-// func (b *Block) Location(idx uint16) LocationPair { return b.recLocation[idx] }
-func (b *Block) addRecord(data []byte) {
-	offset := len(b.record)
+func (b *Block) AddRecord(data []byte) error {
 	length := len(data)
+	if b.size > BLKSIZE || (b.size+length) > BLKSIZE {
+		return fmt.Errorf("AddRecord: Block is full")
+	}
+	offset := len(b.records)
 	locationPair := NewLocationPair(Location_T(offset), Location_T(length))
 	b.recLocation = append(b.recLocation, *locationPair)
-}
-func (b *Block) Get(keys ...interface{}) {
-	// var record Record
-	// found := false
-	// for _, loc := range b.entryLocation {
-
-	// }
-}
-func (b *Block) SetNumEntry() {
-	b.numRecord += uint16(len(b.recLocation))
-}
-func (b *Block) SetSize(size uint16) error {
-	if err := b.checkSize(size); err != nil {
-		return fmt.Errorf("SetSize: %w", err)
-	}
-	b.size += size
-	return nil
-}
-func (b *Block) checkSize(size uint16) error {
-	if b.size >= BLKSIZE {
-		return ErrBlockFull
-	}
-
-	if (BLKSIZE - b.size) < size {
-		return ErrBlockFull
-	}
-
-	if sz := b.size + size; sz > BLKSIZE {
-		return ErrBlockFull
-	}
-	return nil
-}
-func (b *Block) Add(data []byte) error {
-	if err := b.SetSize(uint16(len(data))); err != nil {
-		return err
-	}
-	b.addRecord(data)
-	b.SetNumEntry()
-	b.record = append(b.record) // data...)
+	b.records = append(b.records, data...)
+	b.size += length
 	return nil
 }
 
-type BlockIterator struct {
-	data    *[]byte      // Underlying Block contents
-	current LocationPair // Offset and size of current record
+func (b Block) getRecordSlice(offset, size int) (Record, error) {
+	return NewVarLengthRecordWithHDR(b.records[offset : offset+size])
 }
 
-func (I *BlockIterator) Next()             {}
-func (I *BlockIterator) Prev()             {}
-func (I *BlockIterator) Seek(target int32) {}
+func (b Block) Records() ([]Record, error) {
+	filtered := make([]Record, 0)
+	for _, location := range b.recLocation {
+		record, err := b.getRecordSlice(int(location.offset), int(location.size))
+		if err != nil {
+			return nil, fmt.Errorf("Records: Unable to initialize record %v", err)
+		}
+		filtered = append(filtered, record)
+	}
+	return filtered, nil
+}
+
+func (b Block) FilterRecords(fieldName string, fieldVal []byte) ([]Record, error) {
+	filtered := make([]Record, 0)
+	for _, location := range b.recLocation {
+		record, err := b.getRecordSlice(int(location.offset), int(location.size))
+		if err != nil {
+			return nil, fmt.Errorf("FilterRecords: Unable to initialize record %v", err)
+		}
+		if field := record.GetField(fieldName); bytes.Equal(field, fieldVal) {
+			filtered = append(filtered, record)
+		}
+	}
+	return filtered, nil
+}
+
+func (b *Block) UpdateFiteredRecords(fieldName string, searchVal []byte, newVal []byte) error {
+	for _, location := range b.recLocation {
+		record, err := b.getRecordSlice(int(location.offset), int(location.size))
+		if err != nil {
+			return fmt.Errorf("UpdateFiteredRecords: Unable to initialize record %v", err)
+		}
+		if field := record.GetField(fieldName); bytes.Equal(field, searchVal) {
+			record.UpdateField(fieldName, newVal)
+		}
+	}
+	return nil
+}
+
+func (b *Block) UpdateRecords(fieldName string, fieldVal []byte) error {
+	for _, location := range b.recLocation {
+		record, err := b.getRecordSlice(int(location.offset), int(location.size))
+		if err != nil {
+			return fmt.Errorf("UpdateRecords: Unable to initialize record %v", err)
+		}
+		record.UpdateField(fieldName, fieldVal)
+	}
+	return nil
+}

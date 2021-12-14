@@ -14,8 +14,9 @@ import (
 var ErrColumnDoesNotExist = errors.New("column does not exist")
 
 const (
-	Term     = '\n' // Byte slice terminator
-	FieldSep = ':'  //
+	Term        = '\n' // Byte slice terminator
+	FieldSep    = ':'  //
+	LocationSep = ','
 )
 
 func IsNull(bit, nullField NullField_T) bool { return (nullField & (1 << bit)) < 1 }
@@ -281,6 +282,31 @@ func setLocation(lData []byte) (*[]LocationPair, error) {
 
 func (v *VarLengthRecord) fieldIsNull(bitmask NullField_T) bool {
 	return IsNull(bitmask, v.nullField)
+}
+
+func intToByte(i int) []byte {
+	return []byte(strconv.Itoa(int(i)))
+}
+
+func (v *VarLengthRecord) toByte() []byte {
+	retData := intToByte(int(v.nullField))
+	retData = append(retData, Term)
+	locSize := len(v.location)
+	for i, location := range v.location {
+		retData = append(retData, intToByte(int(location.offset))...)
+		retData = append(retData, LocationSep)
+		retData = append(retData, intToByte(int(location.size))...)
+		if i < (locSize - 1) {
+			retData = append(retData, FieldSep)
+		}
+	}
+	retData = append(retData, Term)
+	retData = append(retData, v.field...)
+	return retData
+}
+
+func (v *VarLengthRecord) RecordSize() int {
+	return len(v.toByte())
 }
 
 func (v *VarLengthRecord) Location(offset Location_T) *LocationPair {

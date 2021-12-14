@@ -351,3 +351,42 @@ func TestNewVarLengthRecord(t *testing.T) {
 		}
 	}
 }
+
+func TestToByte(t *testing.T) {
+	wantData := []byte("127\n14,2:16,3:19,3\n12:34:1467:56\nitwasyou")
+	// wantByte := 41
+	givenData := recordHeader{
+		nullField: NullField_T(127),
+		location: []LocationPair{
+			{14, 2}, {16, 3}, {19, 3},
+		},
+	}
+	record := VarLengthRecord{
+		recordHeader: givenData,
+		field:        []byte("12:34:1467:56\nitwasyou"),
+	}
+
+	toByte := record.toByte()
+	if !bytes.Equal(toByte, wantData) {
+		t.Errorf("Bytes value did not match. Expected: \n%s \n\nbut got\n \n%s", wantData, toByte)
+	}
+
+}
+
+func TestRecordSize(t *testing.T) {
+	wantSize := 41
+	givenData := recordHeader{
+		nullField: NullField_T(127),
+		location: []LocationPair{
+			{14, 2}, {16, 3}, {19, 3},
+		},
+	}
+	record := VarLengthRecord{
+		recordHeader: givenData,
+		field:        []byte("12:34:1467:56\nitwasyou"),
+	}
+	sz := record.RecordSize()
+	if sz != wantSize {
+		t.Errorf("Record size: expected \n%d \n\nbut got\n \n%d", wantSize, sz)
+	}
+}

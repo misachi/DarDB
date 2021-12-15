@@ -24,13 +24,37 @@ type Block struct {
 	records     []byte
 }
 
-type BlockMgr struct {
-	block      []Block // Blocs in memory
-	freeBlocks []Block
+type blockList struct {
+	nextBlock *Block
 }
 
-func NewBlock() *Block {
-	return &Block{}
+type BlockMgr struct {
+	memBlock  blockList // Blocks in memory
+	freeBlock blockList // Blocks with free space
+}
+
+func NewBlock(data []byte) (*Block, error) {
+	copyData := make([]byte, len(data))
+	copy(copyData, data)
+	szOffset := bytes.IndexByte(copyData, Term)
+	locOffset := bytes.IndexByte(copyData[szOffset+1:], Term)
+	records := copyData[locOffset+1:]
+	reader := bytes.NewReader(copyData[:szOffset])
+	sz, err := ByteArrayToInt(reader)
+	if err != nil {
+		return nil, fmt.Errorf("NewBlock: byte slice to integer %v", err)
+	}
+
+	locations, err := setLocation(copyData[szOffset+1 : locOffset+szOffset+1])
+	if err != nil {
+		return nil, fmt.Errorf("NewVarLengthRecord: %v", err)
+	}
+
+	return &Block{
+		size: int(sz),
+		recLocation: *locations,
+		records: records,
+	}, nil
 }
 
 func (b *Block) AddRecord(data []byte) error {

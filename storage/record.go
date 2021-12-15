@@ -115,7 +115,7 @@ func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
 		}, nil
 	}
 	termIdx := bytes.IndexByte(data, Term) // first terminator - for nullfield
-	newBuf := bytes.NewBuffer(data[:termIdx])
+	newBuf := bytes.NewReader(data[:termIdx])
 	nField, err := ByteArrayToInt(newBuf)
 	if err != nil {
 		return nil, fmt.Errorf("NewVarLengthRecord: %v", err)
@@ -123,7 +123,7 @@ func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
 	locationEnd := bytes.IndexByte(data[termIdx+1:], Term)
 	location, err := setLocation(data[termIdx+1 : locationEnd+termIdx+1])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("NewVarLengthRecord: %v", err)
 	}
 	recHDR := recordHeader{
 		nullField: NullField_T(nField),
@@ -259,12 +259,12 @@ func setLocation(lData []byte) (*[]LocationPair, error) {
 		if locSepIdx == -1 {
 			locSepIdx = len(newBuf)
 		}
-		offset, err := ByteArrayToInt(bytes.NewBuffer(newBuf[:fieldSepIdx]))
+		offset, err := ByteArrayToInt(bytes.NewReader(newBuf[:fieldSepIdx]))
 		if err != nil {
 			return nil, fmt.Errorf("setLocation: Unable to set offset: %v", err)
 		}
 
-		size, err := ByteArrayToInt(bytes.NewBuffer(newBuf[fieldSepIdx+1 : locSepIdx]))
+		size, err := ByteArrayToInt(bytes.NewReader(newBuf[fieldSepIdx+1 : locSepIdx]))
 		if err != nil {
 			return nil, fmt.Errorf("setLocation: Unable to set size: %v", err)
 		}

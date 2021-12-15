@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 )
 
 var (
@@ -24,16 +25,89 @@ type Block struct {
 	records     []byte
 }
 
-type blockList struct {
-	nextBlock *Block
+type blockW struct {
+	next  *Block
+	block *Block
 }
 
 type BlockMgr struct {
-	memBlock  blockList // Blocks in memory
-	freeBlock blockList // Blocks with free space
+	memBlock  *blockW // Blocks in memory
+	freeBlock *blockW // Blocks with free space
+}
+
+func createBlockQ(data []byte) (*blockW, error){
+	curr := new(blockW)
+	var prev *blockW
+	for len(data) > 0 {
+		newBlock, err := NewBlock(data[:BLKSIZE])
+		if err != nil {
+			return nil, fmt.Errorf("createBlockQ error: %v", err)
+		}
+		if prev != nil {
+			prev.next = newBlock
+		}
+		curr.block = newBlock
+		prev = curr
+		data = data[BLKSIZE+1:]
+	}
+	return curr, nil
+}
+
+func (b *BlockMgr) load(r io.Reader, limit int) error {
+	buf := make([]byte, limit)
+	_, err := io.ReadAtLeast(r, buf, 1)
+	if err != nil {
+		return fmt.Errorf("load error: %v", err)
+	}
+
+	curr, err := createBlockQ(buf)
+	if err != nil {
+		return fmt.Errorf("load error: %v", err)
+	}
+
+	if b.memBlock == nil {
+		b.memBlock = curr
+	} else {
+		b.memBlock.next = curr.block
+	}
+	return nil
+}
+
+func (b *BlockMgr) loadAll(r io.Reader) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("loadAll io.ReadAll error: %v", err)
+	}
+
+	curr, err := createBlockQ(data)
+	if err != nil {
+		return fmt.Errorf("loadAll error: %v", err)
+	}
+	b.memBlock = curr
+	return nil
+}
+
+func NewBlockMgr(r io.Reader, limit int) (*BlockMgr, error) {
+
+	block := new(BlockMgr)
+	var err error
+
+	if limit < 1 {
+		err = block.loadAll(r)
+	} else {
+		err = block.load(r, limit)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("NewBlockMgr error: %v", err)
+	}
+	return block, nil
 }
 
 func NewBlock(data []byte) (*Block, error) {
+	if len(data) < 1 {
+		return &Block{}, nil
+	}
 	copyData := make([]byte, len(data))
 	copy(copyData, data)
 	szOffset := bytes.IndexByte(copyData, Term)
@@ -47,13 +121,13 @@ func NewBlock(data []byte) (*Block, error) {
 
 	locations, err := setLocation(copyData[szOffset+1 : locOffset+szOffset+1])
 	if err != nil {
-		return nil, fmt.Errorf("NewVarLengthRecord: %v", err)
+		return nil, fmt.Errorf("NewBlock: unable to set location data %v", err)
 	}
 
 	return &Block{
-		size: int(sz),
+		size:        int(sz),
 		recLocation: *locations,
-		records: records,
+		records:     records,
 	}, nil
 }
 

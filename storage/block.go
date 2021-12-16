@@ -13,6 +13,8 @@ var (
 
 const BLKSIZE = 4096 // Size of block on disk
 
+var manager *BlockMgr
+
 type Record interface {
 	GetField(key string) []byte
 	UpdateField(key string, value []byte)
@@ -26,7 +28,7 @@ type Block struct {
 }
 
 type blockW struct {
-	next  *Block
+	next  *blockW
 	block *Block
 }
 
@@ -35,22 +37,33 @@ type BlockMgr struct {
 	freeBlock *blockW // Blocks with free space
 }
 
-func createBlockQ(data []byte) (*blockW, error){
-	curr := new(blockW)
+func GetManager() *BlockMgr {
+	return manager
+}
+
+func createBlockQ(data []byte) (*blockW, error) {
+	head := new(blockW)
 	var prev *blockW
+	var next = head
 	for len(data) > 0 {
-		newBlock, err := NewBlock(data[:BLKSIZE])
+		sizeIdx := bytes.IndexByte(data, Term)
+		size, err := ByteArrayToInt(bytes.NewReader(data[:sizeIdx]))
+		if err != nil {
+			return nil, fmt.Errorf("createBlockQ error: unable to convert byte array to integer %v", err)
+		}
+		newBlock, err := NewBlock(data[:size])
 		if err != nil {
 			return nil, fmt.Errorf("createBlockQ error: %v", err)
 		}
+		next.block = newBlock
 		if prev != nil {
-			prev.next = newBlock
+			prev.next = next
 		}
-		curr.block = newBlock
-		prev = curr
-		data = data[BLKSIZE+1:]
+		prev = next
+		next = new(blockW)
+		data = data[size:]
 	}
-	return curr, nil
+	return head, nil
 }
 
 func (b *BlockMgr) load(r io.Reader, limit int) error {
@@ -68,7 +81,7 @@ func (b *BlockMgr) load(r io.Reader, limit int) error {
 	if b.memBlock == nil {
 		b.memBlock = curr
 	} else {
-		b.memBlock.next = curr.block
+		b.memBlock.next = curr
 	}
 	return nil
 }
@@ -88,6 +101,9 @@ func (b *BlockMgr) loadAll(r io.Reader) error {
 }
 
 func NewBlockMgr(r io.Reader, limit int) (*BlockMgr, error) {
+	if manager != nil {
+		return manager, nil
+	}
 
 	block := new(BlockMgr)
 	var err error
@@ -101,6 +117,7 @@ func NewBlockMgr(r io.Reader, limit int) (*BlockMgr, error) {
 	if err != nil {
 		return nil, fmt.Errorf("NewBlockMgr error: %v", err)
 	}
+	manager = block
 	return block, nil
 }
 

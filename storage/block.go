@@ -13,8 +13,6 @@ var (
 
 const BLKSIZE = 4096 // Size of block on disk
 
-var manager *BlockMgr
-
 type Record interface {
 	GetField(key string) []byte
 	UpdateField(key string, value []byte)
@@ -35,10 +33,6 @@ type blockW struct {
 type BlockMgr struct {
 	memBlock  *blockW // Blocks in memory
 	freeBlock *blockW // Blocks with free space
-}
-
-func GetManager() *BlockMgr {
-	return manager
 }
 
 func createBlockQ(data []byte) (*blockW, error) {
@@ -101,9 +95,6 @@ func (b *BlockMgr) loadAll(r io.Reader) error {
 }
 
 func NewBlockMgr(r io.Reader, limit int) (*BlockMgr, error) {
-	if manager != nil {
-		return manager, nil
-	}
 
 	block := new(BlockMgr)
 	var err error
@@ -117,7 +108,6 @@ func NewBlockMgr(r io.Reader, limit int) (*BlockMgr, error) {
 	if err != nil {
 		return nil, fmt.Errorf("NewBlockMgr error: %v", err)
 	}
-	manager = block
 	return block, nil
 }
 

@@ -1,2 +1,2 @@
 # DarDB
-A Relational Database Management System
+A storage engine for relational dbs

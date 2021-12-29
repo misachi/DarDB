@@ -34,14 +34,14 @@ func TestCreateBlockQ(t *testing.T) {
 
 		i := 0
 		for block != nil {
-			if block.block.size != val.wantSize[i] {
-				t.Errorf("expected block size to be %d but got %d", val.wantSize[i], block.block.size)
+			if block.Block.size != val.wantSize[i] {
+				t.Errorf("expected block size to be %d but got %d", val.wantSize[i], block.Block.size)
 			}
 
 			for _, locations := range val.wantLocation {
 				for j, loc := range locations {
-					if loc.offset != block.block.recLocation[j].offset || loc.size != block.block.recLocation[j].size {
-						t.Errorf("TestNewBlock: Expected locations to be %v but found %v", loc, block.block.recLocation[j])
+					if loc.offset != block.Block.recLocation[j].offset || loc.size != block.Block.recLocation[j].size {
+						t.Errorf("TestNewBlock: Expected locations to be %v but found %v", loc, block.Block.recLocation[j])
 					}
 				}
 			}

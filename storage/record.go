@@ -19,6 +19,29 @@ const (
 	LocationSep = ','
 )
 
+type SUPPORTED_TYPE int
+
+const (
+	Number = iota + 1
+	String
+)
+
+const (
+	INT SUPPORTED_TYPE = iota
+	INT8
+	INT16
+	INT32
+	INT64
+	UINT
+	UINT8
+	UINT16
+	UINT32
+	UINT64
+	FLOAT32
+	FLOAT64
+	STRING
+)
+
 func IsNull(bit, nullField NullField_T) bool { return (nullField & (1 << bit)) < 1 }
 
 type LocationPair struct {
@@ -59,7 +82,7 @@ func ByteArrayToInt(r io.Reader) (int64, error) {
 	return val, nil
 }
 
-func NewVarLengthRecord(data [][]byte) (*VarLengthRecord, error) {
+func NewVarLengthRecord(cols columnData, data [][]byte) (*VarLengthRecord, error) {
 	mu := &sync.Mutex{}
 	if len(data) < 1 {
 		return &VarLengthRecord{
@@ -68,7 +91,6 @@ func NewVarLengthRecord(data [][]byte) (*VarLengthRecord, error) {
 			mtx:          mu,
 		}, nil
 	}
-	cols := NewColumnData()
 	var nullField NullField_T
 	var location []LocationPair
 	field := make([]byte, 0)
@@ -142,14 +164,13 @@ type FixedLengthRecord struct {
 	mtx       *sync.Mutex
 }
 
-const (
-	Number = iota + 1
-	String
-)
-
 type Column struct {
 	name  string
-	_type string
+	_type SUPPORTED_TYPE
+}
+
+func NewColumn(name string, typ SUPPORTED_TYPE) Column {
+	return Column{name: name, _type: typ}
 }
 
 func (c Column) size() int {
@@ -158,22 +179,6 @@ func (c Column) size() int {
 
 type columnData struct {
 	keys []Column
-}
-
-func NewColumnData() columnData {
-	// returns columns and the associated types
-	return columnData{
-		keys: []Column{
-			{name: "field1", _type: "int"},
-			{name: "field2", _type: "float32"},
-			{name: "field3", _type: "uint32"},
-			{name: "field4", _type: "int64"},
-			{name: "field5", _type: "string"},
-			{name: "field6", _type: "string"},
-			{name: "field7", _type: "string"},
-			{name: "field8", _type: "string"},
-		},
-	}
 }
 
 func (cd columnData) column(name string) (Column, error) {
@@ -194,37 +199,37 @@ func (cd columnData) index(name string) (int, error) {
 	return -1, ErrColumnDoesNotExist
 }
 
-func getTypeSize(name string) int {
+func getTypeSize(name SUPPORTED_TYPE) int {
 	var val interface{}
 	switch name {
-	case "int8":
+	case INT8:
 		val = int8(3)
 		return int(reflect.TypeOf(val).Size())
-	case "int16":
+	case INT16:
 		val = int16(3)
 		return int(reflect.TypeOf(val).Size())
-	case "int", "int32":
+	case INT, INT32:
 		val = int32(3)
 		return int(reflect.TypeOf(val).Size())
-	case "int64":
+	case INT64:
 		val = int64(3)
 		return int(reflect.TypeOf(val).Size())
-	case "uint8":
+	case UINT8:
 		val = uint8(3)
 		return int(reflect.TypeOf(val).Size())
-	case "uint16":
+	case UINT16:
 		val = uint16(3)
 		return int(reflect.TypeOf(val).Size())
-	case "uint", "uint32":
+	case UINT, UINT32:
 		val = uint32(3)
 		return int(reflect.TypeOf(val).Size())
-	case "uint64":
+	case UINT64:
 		val = uint64(3)
 		return int(reflect.TypeOf(val).Size())
-	case "float32":
+	case FLOAT32:
 		val = float32(3)
 		return int(reflect.TypeOf(val).Size())
-	case "float64":
+	case FLOAT64:
 		val = float64(3)
 		return int(reflect.TypeOf(val).Size())
 	default:
@@ -232,8 +237,8 @@ func getTypeSize(name string) int {
 	}
 }
 
-func getFieldLocation(location []LocationPair, idx int) *LocationPair {
-	cols := NewColumnData()
+func getFieldLocation(cols columnData, location []LocationPair, idx int) *LocationPair {
+	// cols := NewColumnData()
 	for i, key := range cols.keys {
 		if getTypeSize(key._type) < 0 {
 			return &location[idx-i]
@@ -280,7 +285,11 @@ func setLocation(lData []byte) (*[]LocationPair, error) {
 	return &location, nil
 }
 
-func (v *VarLengthRecord) fieldIsNull(bitmask NullField_T) bool {
+func (v VarLengthRecord) Field() []byte {
+	return v.field
+}
+
+func (v VarLengthRecord) fieldIsNull(bitmask NullField_T) bool {
 	return IsNull(bitmask, v.nullField)
 }
 
@@ -288,7 +297,7 @@ func intToByte(i int) []byte {
 	return []byte(strconv.Itoa(int(i)))
 }
 
-func (v *VarLengthRecord) toByte() []byte {
+func (v VarLengthRecord) toByte() []byte {
 	retData := intToByte(int(v.nullField))
 	retData = append(retData, Term)
 	locSize := len(v.location)
@@ -305,11 +314,11 @@ func (v *VarLengthRecord) toByte() []byte {
 	return retData
 }
 
-func (v *VarLengthRecord) RecordSize() int {
+func (v VarLengthRecord) RecordSize() int {
 	return len(v.toByte())
 }
 
-func (v *VarLengthRecord) Location(offset Location_T) *LocationPair {
+func (v VarLengthRecord) Location(offset Location_T) *LocationPair {
 	for _, loc := range v.location {
 		if loc.offset == offset {
 			return &loc
@@ -333,7 +342,7 @@ func (v *VarLengthRecord) updateLocation(location LocationPair, offset, size Loc
 
 }
 
-func (v *VarLengthRecord) GetField(colData columnData, key string) []byte {
+func (v VarLengthRecord) GetField(colData columnData, key string) []byte {
 	v.mtx.Lock()
 	defer v.mtx.Unlock()
 
@@ -347,7 +356,7 @@ func (v *VarLengthRecord) GetField(colData columnData, key string) []byte {
 	idx, _ := colData.index(key)
 	if !v.fieldIsNull(NullField_T(idx)) {
 		if num := getTypeSize(col._type); num < 0 {
-			location := getFieldLocation(v.location, idx)
+			location := getFieldLocation(colData, v.location, idx)
 			if location == nil {
 				return nil
 			}
@@ -437,7 +446,7 @@ func (v *VarLengthRecord) UpdateField(colData columnData, key string, value []by
 	idx, _ := colData.index(key)
 	offset := 0
 	if !isNumber(value) {
-		location := getFieldLocation(v.location, idx)
+		location := getFieldLocation(colData, v.location, idx)
 		v.field = append(v.field[:location.offset],
 			append(value, v.field[location.offset+location.size:]...)...)
 		// location.size = Location_T(len(value))
@@ -488,7 +497,7 @@ func (f *FixedLengthRecord) AddField(key string, value []byte) {
 	f.mtx.Lock()
 	defer f.mtx.Unlock()
 	f.field = append(f.field, value...)
-	f.nullField = f.nullField | (1 << NullField_T(getTypeSize(key)))
+	// f.nullField = f.nullField | (1 << NullField_T(getTypeSize(key)))
 }
 
 func (f *FixedLengthRecord) UpdateField(key string, value []byte) {

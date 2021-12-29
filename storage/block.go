@@ -27,7 +27,11 @@ type Block struct {
 
 type blockW struct {
 	next  *blockW
-	block *Block
+	Block *Block
+}
+
+func (bw blockW) Next() blockW {
+	return *bw.next
 }
 
 type BlockMgr struct {
@@ -49,7 +53,7 @@ func createBlockQ(data []byte) (*blockW, error) {
 		if err != nil {
 			return nil, fmt.Errorf("createBlockQ error: %v", err)
 		}
-		next.block = newBlock
+		next.Block = newBlock
 		if prev != nil {
 			prev.next = next
 		}
@@ -111,6 +115,10 @@ func NewBlockMgr(r io.Reader, limit int) (*BlockMgr, error) {
 	return block, nil
 }
 
+func (m BlockMgr) BlockW() blockW {
+	return *m.memBlock
+}
+
 func (m BlockMgr) NumBlocks() int {
 	next := m.memBlock
 	count := 0
@@ -125,7 +133,7 @@ func (m BlockMgr) NumRecords() int {
 	next := m.memBlock
 	count := 0
 	for next != nil {
-		count += next.block.size
+		count += next.Block.size
 		next = next.next
 	}
 	return count

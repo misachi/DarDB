@@ -5,6 +5,22 @@ import (
 	"testing"
 )
 
+func NewColumnData() columnData {
+	// returns columns and the associated types
+	return columnData{
+		keys: []Column{
+			{name: "field1", _type: INT},
+			{name: "field2", _type: FLOAT32},
+			{name: "field3", _type: UINT32},
+			{name: "field4", _type: INT64},
+			{name: "field5", _type: STRING},
+			{name: "field6", _type: STRING},
+			{name: "field7", _type: STRING},
+			{name: "field8", _type: STRING},
+		},
+	}
+}
+
 func TestLocationPairOffset(t *testing.T) {
 	off, size := Location_T(1), Location_T(2)
 	lp := LocationPair{off, size}
@@ -60,27 +76,27 @@ func TestIsNumber(t *testing.T) {
 
 func TestGetTypeSize(t *testing.T) {
 	type valType struct {
-		given    string
+		given    SUPPORTED_TYPE
 		wantSize int
 	}
 	values := []valType{
-		{"int8", 1},
-		{"int16", 2},
-		{"int", 4},
-		{"int32", 4},
-		{"int64", 8},
-		{"uint8", 1},
-		{"uint16", 2},
-		{"uint", 4},
-		{"uint32", 4},
-		{"uint64", 8},
-		{"float32", 4},
-		{"float64", 8},
+		{INT8, 1},
+		{INT16, 2},
+		{INT, 4},
+		{INT32, 4},
+		{INT64, 8},
+		{UINT8, 1},
+		{UINT16, 2},
+		{UINT, 4},
+		{UINT32, 4},
+		{UINT64, 8},
+		{FLOAT32, 4},
+		{FLOAT64, 8},
 	}
 
 	for _, val := range values {
 		if size := getTypeSize(val.given); size != val.wantSize {
-			t.Errorf("Expected size: %d for type %s but got size: %d", val.wantSize, val.given, size)
+			t.Errorf("Expected size: %d for type %d but got size: %d", val.wantSize, val.given, size)
 		}
 	}
 }
@@ -334,7 +350,8 @@ func TestNewVarLengthRecord(t *testing.T) {
 	}
 
 	for _, val := range values {
-		record, err := NewVarLengthRecord(val.given)
+		cols := NewColumnData()
+		record, err := NewVarLengthRecord(cols, val.given)
 		if err != nil {
 			t.Error(err)
 		}

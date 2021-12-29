@@ -147,23 +147,23 @@ const (
 	String
 )
 
-type column struct {
+type Column struct {
 	name  string
 	_type string
 }
 
-func (c column) size() int {
+func (c Column) size() int {
 	return getTypeSize(c._type)
 }
 
 type columnData struct {
-	keys []column
+	keys []Column
 }
 
 func NewColumnData() columnData {
 	// returns columns and the associated types
 	return columnData{
-		keys: []column{
+		keys: []Column{
 			{name: "field1", _type: "int"},
 			{name: "field2", _type: "float32"},
 			{name: "field3", _type: "uint32"},
@@ -176,13 +176,13 @@ func NewColumnData() columnData {
 	}
 }
 
-func (cd columnData) column(name string) (column, error) {
+func (cd columnData) column(name string) (Column, error) {
 	for _, key := range cd.keys {
 		if name == key.name {
 			return key, nil
 		}
 	}
-	return column{}, ErrColumnDoesNotExist
+	return Column{}, ErrColumnDoesNotExist
 }
 
 func (cd columnData) index(name string) (int, error) {
@@ -333,11 +333,11 @@ func (v *VarLengthRecord) updateLocation(location LocationPair, offset, size Loc
 
 }
 
-func (v *VarLengthRecord) GetField(key string) []byte {
+func (v *VarLengthRecord) GetField(colData columnData, key string) []byte {
 	v.mtx.Lock()
 	defer v.mtx.Unlock()
 
-	colData := NewColumnData()
+	// colData := NewColumnData()
 	col, err := colData.column(key)
 
 	if err != nil {
@@ -397,7 +397,7 @@ func isNumber(value []byte) bool {
 	return true
 }
 
-func (v *VarLengthRecord) AddField(key string, value []byte) {
+func (v *VarLengthRecord) AddField(colData columnData, key string, value []byte) {
 	v.mtx.Lock()
 	defer v.mtx.Unlock()
 
@@ -418,7 +418,7 @@ func (v *VarLengthRecord) AddField(key string, value []byte) {
 		append(value, v.field[len(v.field)-int(bufSize):]...)...,
 	)
 	// fieldIdx := getFieldIndex(key)
-	colData := NewColumnData()
+	// colData := NewColumnData()
 	// col, err := colData.column(key)
 
 	// if err != nil {
@@ -429,11 +429,11 @@ func (v *VarLengthRecord) AddField(key string, value []byte) {
 	v.nullField = v.nullField | (1 << NullField_T(fieldIdx))
 }
 
-func (v *VarLengthRecord) UpdateField(key string, value []byte) {
+func (v *VarLengthRecord) UpdateField(colData columnData, key string, value []byte) {
 	v.mtx.Lock()
 	defer v.mtx.Unlock()
 
-	colData := NewColumnData()
+	// colData := NewColumnData()
 	idx, _ := colData.index(key)
 	offset := 0
 	if !isNumber(value) {

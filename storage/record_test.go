@@ -206,12 +206,13 @@ func TestGetField(t *testing.T) {
 		},
 	}
 
+	colData := NewColumnData()
 	for _, val := range values {
 		record, err := NewVarLengthRecordWithHDR(val.given)
 		if err != nil {
 			t.Errorf("%v", err)
 		}
-		if fieldVal := record.GetField(val.givenField); !bytes.Equal(fieldVal, val.wantValue) {
+		if fieldVal := record.GetField(colData, val.givenField); !bytes.Equal(fieldVal, val.wantValue) {
 			t.Errorf("Expected %s but found %s", val.wantValue, fieldVal)
 		}
 	}
@@ -284,13 +285,15 @@ func TestUpdateField(t *testing.T) {
 			},
 		},
 	}
+	colData := NewColumnData()
+
 	for _, val := range values {
 		record, err := NewVarLengthRecordWithHDR(val.givenData)
 		if err != nil {
 			t.Errorf("%v", err)
 		}
-		record.UpdateField(val.givenField, val.givenValue)
-		if fieldVal := record.GetField(val.givenField); !bytes.Equal(fieldVal, val.wantValue) {
+		record.UpdateField(colData, val.givenField, val.givenValue)
+		if fieldVal := record.GetField(colData, val.givenField); !bytes.Equal(fieldVal, val.wantValue) {
 			t.Errorf("Expected %s but found %s", val.wantValue, fieldVal)
 		}
 		if !bytes.Equal(record.field, val.wantData) {

@@ -14,9 +14,9 @@ var (
 const BLKSIZE = 4096 // Size of block on disk
 
 type Record interface {
-	GetField(key string) []byte
-	UpdateField(key string, value []byte)
-	AddField(key string, value []byte)
+	GetField(colData columnData, key string) []byte
+	UpdateField(colData columnData, key string, value []byte)
+	AddField(colData columnData, key string, value []byte)
 }
 
 type Block struct {
@@ -60,7 +60,7 @@ func createBlockQ(data []byte) (*blockW, error) {
 	return head, nil
 }
 
-func (b *BlockMgr) load(r io.Reader, limit int) error {
+func load(r io.Reader, b *BlockMgr, limit int) error {
 	buf := make([]byte, limit)
 	_, err := io.ReadAtLeast(r, buf, 1)
 	if err != nil {
@@ -80,7 +80,7 @@ func (b *BlockMgr) load(r io.Reader, limit int) error {
 	return nil
 }
 
-func (b *BlockMgr) loadAll(r io.Reader) error {
+func loadAll(r io.Reader, b *BlockMgr) error {
 	data, err := io.ReadAll(r)
 	if err != nil {
 		return fmt.Errorf("loadAll io.ReadAll error: %v", err)
@@ -100,15 +100,35 @@ func NewBlockMgr(r io.Reader, limit int) (*BlockMgr, error) {
 	var err error
 
 	if limit < 1 {
-		err = block.loadAll(r)
+		err = loadAll(r, block)
 	} else {
-		err = block.load(r, limit)
+		err = load(r, block, limit)
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("NewBlockMgr error: %v", err)
 	}
 	return block, nil
+}
+
+func (m BlockMgr) NumBlocks() int {
+	next := m.memBlock
+	count := 0
+	for next != nil {
+		count += 1
+		next = next.next
+	}
+	return count
+}
+
+func (m BlockMgr) NumRecords() int {
+	next := m.memBlock
+	count := 0
+	for next != nil {
+		count += next.block.size
+		next = next.next
+	}
+	return count
 }
 
 func NewBlock(data []byte) (*Block, error) {
@@ -139,7 +159,11 @@ func NewBlock(data []byte) (*Block, error) {
 }
 
 func (b *Block) AddRecord(data []byte) error {
-	length := len(data)
+	record, err := NewVarLengthRecordWithHDR(data)
+	if err != nil {
+		return fmt.Errorf("AddRecord: %v", err)
+	}
+	length := record.RecordSize()
 	if b.size > BLKSIZE || (b.size+length) > BLKSIZE {
 		return fmt.Errorf("AddRecord: Block is full")
 	}
@@ -168,13 +192,14 @@ func (b Block) Records() ([]Record, error) {
 }
 
 func (b Block) FilterRecords(fieldName string, fieldVal []byte) ([]Record, error) {
+	colData := NewColumnData()
 	filtered := make([]Record, 0)
 	for _, location := range b.recLocation {
 		record, err := b.getRecordSlice(int(location.offset), int(location.size))
 		if err != nil {
 			return nil, fmt.Errorf("FilterRecords: Unable to initialize record %v", err)
 		}
-		if field := record.GetField(fieldName); bytes.Equal(field, fieldVal) {
+		if field := record.GetField(colData, fieldName); bytes.Equal(field, fieldVal) {
 			filtered = append(filtered, record)
 		}
 	}
@@ -182,25 +207,27 @@ func (b Block) FilterRecords(fieldName string, fieldVal []byte) ([]Record, error
 }
 
 func (b *Block) UpdateFiteredRecords(fieldName string, searchVal []byte, newVal []byte) error {
+	colData := NewColumnData()
 	for _, location := range b.recLocation {
 		record, err := b.getRecordSlice(int(location.offset), int(location.size))
 		if err != nil {
 			return fmt.Errorf("UpdateFiteredRecords: Unable to initialize record %v", err)
 		}
-		if field := record.GetField(fieldName); bytes.Equal(field, searchVal) {
-			record.UpdateField(fieldName, newVal)
+		if field := record.GetField(colData, fieldName); bytes.Equal(field, searchVal) {
+			record.UpdateField(colData, fieldName, newVal)
 		}
 	}
 	return nil
 }
 
 func (b *Block) UpdateRecords(fieldName string, fieldVal []byte) error {
+	colData := NewColumnData()
 	for _, location := range b.recLocation {
 		record, err := b.getRecordSlice(int(location.offset), int(location.size))
 		if err != nil {
 			return fmt.Errorf("UpdateRecords: Unable to initialize record %v", err)
 		}
-		record.UpdateField(fieldName, fieldVal)
+		record.UpdateField(colData, fieldName, fieldVal)
 	}
 	return nil
 }

@@ -199,8 +199,8 @@ func (b Block) Records() ([]Record, error) {
 	return filtered, nil
 }
 
-func (b Block) FilterRecords(fieldName string, fieldVal []byte) ([]Record, error) {
-	colData := NewColumnData()
+func (b Block) FilterRecords(colData columnData, fieldName string, fieldVal []byte) ([]Record, error) {
+	// colData := NewColumnData()
 	filtered := make([]Record, 0)
 	for _, location := range b.recLocation {
 		record, err := b.getRecordSlice(int(location.offset), int(location.size))
@@ -214,8 +214,8 @@ func (b Block) FilterRecords(fieldName string, fieldVal []byte) ([]Record, error
 	return filtered, nil
 }
 
-func (b *Block) UpdateFiteredRecords(fieldName string, searchVal []byte, newVal []byte) error {
-	colData := NewColumnData()
+func (b *Block) UpdateFiteredRecords(colData columnData, fieldName string, searchVal []byte, newVal []byte) error {
+	// colData := NewColumnData()
 	for _, location := range b.recLocation {
 		record, err := b.getRecordSlice(int(location.offset), int(location.size))
 		if err != nil {
@@ -228,8 +228,8 @@ func (b *Block) UpdateFiteredRecords(fieldName string, searchVal []byte, newVal 
 	return nil
 }
 
-func (b *Block) UpdateRecords(fieldName string, fieldVal []byte) error {
-	colData := NewColumnData()
+func (b *Block) UpdateRecords(colData columnData, fieldName string, fieldVal []byte) error {
+	// colData := NewColumnData()
 	for _, location := range b.recLocation {
 		record, err := b.getRecordSlice(int(location.offset), int(location.size))
 		if err != nil {

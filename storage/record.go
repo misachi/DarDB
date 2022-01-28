@@ -5,10 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"reflect"
 	"strconv"
 	"sync"
 	"unsafe"
+	"github.com/misachi/DarDB/column"
 )
 
 var ErrColumnDoesNotExist = errors.New("column does not exist")
@@ -19,28 +19,12 @@ const (
 	LocationSep = ','
 )
 
-type SUPPORTED_TYPE int
-
 const (
 	Number = iota + 1
 	String
 )
 
-const (
-	INT SUPPORTED_TYPE = iota
-	INT8
-	INT16
-	INT32
-	INT64
-	UINT
-	UINT8
-	UINT16
-	UINT32
-	UINT64
-	FLOAT32
-	FLOAT64
-	STRING
-)
+
 
 func IsNull(bit, nullField NullField_T) bool { return (nullField & (1 << bit)) < 1 }
 
@@ -104,7 +88,7 @@ func NewVarLengthRecord(cols columnData, data [][]byte) (*VarLengthRecord, error
 		if _len > 0 {
 			nullField = nullField | (1 << i)
 		}
-		if getTypeSize(key._type) < 0 {
+		if column.GetTypeSize(key.Type) < 0 {
 			var offset Location_T
 			if len(location) < 1 {
 				field = append(field, '\n')
@@ -164,83 +148,32 @@ type FixedLengthRecord struct {
 	mtx       *sync.Mutex
 }
 
-type Column struct {
-	name  string
-	_type SUPPORTED_TYPE
-}
-
-func NewColumn(name string, typ SUPPORTED_TYPE) Column {
-	return Column{name: name, _type: typ}
-}
-
-func (c Column) size() int {
-	return getTypeSize(c._type)
-}
-
 type columnData struct {
-	keys []Column
+	keys []column.Column
 }
 
-func (cd columnData) column(name string) (Column, error) {
+func (cd columnData) column(name string) (column.Column, error) {
 	for _, key := range cd.keys {
-		if name == key.name {
+		if name == key.Name {
 			return key, nil
 		}
 	}
-	return Column{}, ErrColumnDoesNotExist
+	return column.Column{}, ErrColumnDoesNotExist
 }
 
 func (cd columnData) index(name string) (int, error) {
 	for idx, key := range cd.keys {
-		if name == key.name {
+		if name == key.Name {
 			return idx, nil
 		}
 	}
 	return -1, ErrColumnDoesNotExist
 }
 
-func getTypeSize(name SUPPORTED_TYPE) int {
-	var val interface{}
-	switch name {
-	case INT8:
-		val = int8(3)
-		return int(reflect.TypeOf(val).Size())
-	case INT16:
-		val = int16(3)
-		return int(reflect.TypeOf(val).Size())
-	case INT, INT32:
-		val = int32(3)
-		return int(reflect.TypeOf(val).Size())
-	case INT64:
-		val = int64(3)
-		return int(reflect.TypeOf(val).Size())
-	case UINT8:
-		val = uint8(3)
-		return int(reflect.TypeOf(val).Size())
-	case UINT16:
-		val = uint16(3)
-		return int(reflect.TypeOf(val).Size())
-	case UINT, UINT32:
-		val = uint32(3)
-		return int(reflect.TypeOf(val).Size())
-	case UINT64:
-		val = uint64(3)
-		return int(reflect.TypeOf(val).Size())
-	case FLOAT32:
-		val = float32(3)
-		return int(reflect.TypeOf(val).Size())
-	case FLOAT64:
-		val = float64(3)
-		return int(reflect.TypeOf(val).Size())
-	default:
-		return -1
-	}
-}
-
 func getFieldLocation(cols columnData, location []LocationPair, idx int) *LocationPair {
 	// cols := NewColumnData()
 	for i, key := range cols.keys {
-		if getTypeSize(key._type) < 0 {
+		if column.GetTypeSize(key.Type) < 0 {
 			return &location[idx-i]
 		}
 	}
@@ -355,7 +288,7 @@ func (v VarLengthRecord) GetField(colData columnData, key string) []byte {
 
 	idx, _ := colData.index(key)
 	if !v.fieldIsNull(NullField_T(idx)) {
-		if num := getTypeSize(col._type); num < 0 {
+		if num := column.GetTypeSize(col.Type); num < 0 {
 			location := getFieldLocation(colData, v.location, idx)
 			if location == nil {
 				return nil

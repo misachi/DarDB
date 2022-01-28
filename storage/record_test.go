@@ -3,20 +3,21 @@ package storage
 import (
 	"bytes"
 	"testing"
+	"github.com/misachi/DarDB/column"
 )
 
 func NewColumnData() columnData {
 	// returns columns and the associated types
 	return columnData{
-		keys: []Column{
-			{name: "field1", _type: INT},
-			{name: "field2", _type: FLOAT32},
-			{name: "field3", _type: UINT32},
-			{name: "field4", _type: INT64},
-			{name: "field5", _type: STRING},
-			{name: "field6", _type: STRING},
-			{name: "field7", _type: STRING},
-			{name: "field8", _type: STRING},
+		keys: []column.Column{
+			{Name: "field1", Type: column.INT},
+			{Name: "field2", Type: column.FLOAT32},
+			{Name: "field3", Type: column.UINT32},
+			{Name: "field4", Type: column.INT64},
+			{Name: "field5", Type: column.STRING},
+			{Name: "field6", Type: column.STRING},
+			{Name: "field7", Type: column.STRING},
+			{Name: "field8", Type: column.STRING},
 		},
 	}
 }
@@ -76,26 +77,26 @@ func TestIsNumber(t *testing.T) {
 
 func TestGetTypeSize(t *testing.T) {
 	type valType struct {
-		given    SUPPORTED_TYPE
+		given    column.SUPPORTED_TYPE
 		wantSize int
 	}
 	values := []valType{
-		{INT8, 1},
-		{INT16, 2},
-		{INT, 4},
-		{INT32, 4},
-		{INT64, 8},
-		{UINT8, 1},
-		{UINT16, 2},
-		{UINT, 4},
-		{UINT32, 4},
-		{UINT64, 8},
-		{FLOAT32, 4},
-		{FLOAT64, 8},
+		{column.INT8, 1},
+		{column.INT16, 2},
+		{column.INT, 4},
+		{column.INT32, 4},
+		{column.INT64, 8},
+		{column.UINT8, 1},
+		{column.UINT16, 2},
+		{column.UINT, 4},
+		{column.UINT32, 4},
+		{column.UINT64, 8},
+		{column.FLOAT32, 4},
+		{column.FLOAT64, 8},
 	}
 
 	for _, val := range values {
-		if size := getTypeSize(val.given); size != val.wantSize {
+		if size := column.GetTypeSize(val.given); size != val.wantSize {
 			t.Errorf("Expected size: %d for type %d but got size: %d", val.wantSize, val.given, size)
 		}
 	}

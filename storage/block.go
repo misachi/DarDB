@@ -145,7 +145,7 @@ type Block struct {
 
 func NewBlock(data []byte, blkID int) (*Block, error) {
 	if len(data) < 1 {
-		return &Block{}, nil
+		return new(Block), nil
 	}
 	copyData := make([]byte, len(data))
 	copy(copyData, data)

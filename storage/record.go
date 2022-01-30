@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync"
 	"unsafe"
+
 	"github.com/misachi/DarDB/column"
 )
 
@@ -23,8 +24,6 @@ const (
 	Number = iota + 1
 	String
 )
-
-
 
 func IsNull(bit, nullField NullField_T) bool { return (nullField & (1 << bit)) < 1 }
 
@@ -66,8 +65,8 @@ func ByteArrayToInt(r io.Reader) (int64, error) {
 	return val, nil
 }
 
-func NewVarLengthRecord(cols columnData, data [][]byte) (*VarLengthRecord, error) {
-	mu := &sync.Mutex{}
+func NewVarLengthRecord(cols []column.Column, data [][]byte) (*VarLengthRecord, error) {
+	mu := new(sync.Mutex)
 	if len(data) < 1 {
 		return &VarLengthRecord{
 			recordHeader: recordHeader{0, []LocationPair{{0, 0}}},
@@ -79,7 +78,7 @@ func NewVarLengthRecord(cols columnData, data [][]byte) (*VarLengthRecord, error
 	var location []LocationPair
 	field := make([]byte, 0)
 	dataLen := len(data)
-	for i, key := range cols.keys {
+	for i, key := range cols {
 		if i >= dataLen {
 			nullField = nullField & ^(1 << i)
 			continue
@@ -124,12 +123,12 @@ func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
 	newBuf := bytes.NewReader(data[:termIdx])
 	nField, err := ByteArrayToInt(newBuf)
 	if err != nil {
-		return nil, fmt.Errorf("NewVarLengthRecord: %v", err)
+		return nil, fmt.Errorf("NewVarLengthRecordWithHDR: %v", err)
 	}
 	locationEnd := bytes.IndexByte(data[termIdx+1:], Term)
 	location, err := setLocation(data[termIdx+1 : locationEnd+termIdx+1])
 	if err != nil {
-		return nil, fmt.Errorf("NewVarLengthRecord: %v", err)
+		return nil, fmt.Errorf("NewVarLengthRecordWithHDR: %v", err)
 	}
 	recHDR := recordHeader{
 		nullField: NullField_T(nField),
@@ -230,7 +229,7 @@ func intToByte(i int) []byte {
 	return []byte(strconv.Itoa(int(i)))
 }
 
-func (v VarLengthRecord) toByte() []byte {
+func (v VarLengthRecord) ToByte() []byte {
 	retData := intToByte(int(v.nullField))
 	retData = append(retData, Term)
 	locSize := len(v.location)
@@ -248,7 +247,7 @@ func (v VarLengthRecord) toByte() []byte {
 }
 
 func (v VarLengthRecord) RecordSize() int {
-	return len(v.toByte())
+	return len(v.ToByte())
 }
 
 func (v VarLengthRecord) Location(offset Location_T) *LocationPair {

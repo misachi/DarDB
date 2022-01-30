@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"testing"
+
 	"github.com/misachi/DarDB/column"
 )
 
@@ -352,7 +353,7 @@ func TestNewVarLengthRecord(t *testing.T) {
 
 	for _, val := range values {
 		cols := NewColumnData()
-		record, err := NewVarLengthRecord(cols, val.given)
+		record, err := NewVarLengthRecord(cols.keys, val.given)
 		if err != nil {
 			t.Error(err)
 		}
@@ -387,7 +388,7 @@ func TestToByte(t *testing.T) {
 		field:        []byte("12:34:1467:56\nitwasyou"),
 	}
 
-	toByte := record.toByte()
+	toByte := record.ToByte()
 	if !bytes.Equal(toByte, wantData) {
 		t.Errorf("Bytes value did not match. Expected: \n%s \n\nbut got\n \n%s", wantData, toByte)
 	}

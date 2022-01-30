@@ -11,6 +11,7 @@ type Pool interface {
 	Get(key interface{}) interface{}
 	Push(_key interface{}, _data interface{})
 	Remove(key interface{})
+	Head() interface{}
 }
 
 type BufferPoolMgr struct {
@@ -25,8 +26,8 @@ func NewBufferPoolMgr(psize int, fName string) (*BufferPoolMgr, error) {
 	return &BufferPoolMgr{
 		poolSize:    psize,
 		diskManager: mgr,
-		block: ds.NewList(),
-		freeList: ds.NewList(),
+		block:       ds.NewList(),
+		freeList:    ds.NewList(),
 	}, nil
 }
 
@@ -71,6 +72,29 @@ func (buf *BufferPoolMgr) GetBlock(blockId int) (*Block, error) {
 		return nil, fmt.Errorf("GetBlock: new block error %v", err)
 	}
 	return blk, nil
+}
+
+func (buf *BufferPoolMgr) GetFree(sz int) *Block {
+	blk := buf.block.Head()
+	if blk == nil {
+		blk = buf.freeList.Head()
+	}
+
+	// We don't have a free block in the freeList
+	if blk == nil {
+		data := make([]byte, 0)
+		fileSize := buf.diskManager.Size()
+		_blk, err := NewBlock(data, int(fileSize))
+		if err != nil {
+			return nil
+		}
+		blk = _blk
+		buf.block.Push(fileSize, _blk)
+	}
+	if blk != nil && blk.(*Block).size < sz {
+		return blk.(*Block)
+	}
+	return nil
 }
 
 func (buf *BufferPoolMgr) flushBlock(blockID int, blk *Block) {

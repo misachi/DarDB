@@ -41,8 +41,21 @@ func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, er
 	}, nil
 }
 
-func (tbl *Table) AddRecord(colName string, fieldVal []byte) bool {
-	
+func (tbl *Table) AddRecord(cols []column.Column, fieldVals [][]byte) (bool, error) {
+	recSize := 0
+	for i := 0; i < len(fieldVals); i++ {
+		recSize += len(fieldVals[i])
+	}
+	blk := tbl.mgr.GetFree(recSize)
+	if blk == nil {
+		return false, fmt.Errorf("AddRecord: check disk space")
+	}
+	record, err := st.NewVarLengthRecord(cols, fieldVals)
+	if err != nil {
+		return false, fmt.Errorf("AddRecord: record error %v", err)
+	}
+	blk.AddRecord(record.ToByte())
+	return true, nil
 }
 
 func NewTableInfo(name string, location string, cols []column.Column, pkey column.Column) *TableInfo {

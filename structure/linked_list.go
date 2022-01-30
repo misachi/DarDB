@@ -14,6 +14,7 @@ func (v *Value) Next() *Value {
 }
 
 type List struct {
+	size int
 	head *Value
 	next *Value
 }
@@ -26,10 +27,12 @@ func (l *List) Push(_key interface{}, _data interface{}) {
 	var current Value = Value{key: _key, data: _data}
 	current.next = l.head
 	l.head = &current
+	l.size += 1
 }
 
 func (l *List) Pop() interface{} {
 	ret := l.head
+	l.size -= 1
 	if l.next != nil {
 		l.head = l.next
 		l.next = l.next.next
@@ -61,9 +64,14 @@ func (l *List) Remove(key interface{}) {
 	for next != nil {
 		if next.key == key {
 			prev.next = next.next
+			l.size -= 1
 			break
 		}
 		prev = next
 		next = next.next
 	}
+}
+
+func (l *List) Head() interface{} {
+	return l.head
 }

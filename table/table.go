@@ -3,13 +3,14 @@ package storage
 import (
 	"encoding/json"
 	"fmt"
-	"io"
+	"path"
 
 	"github.com/misachi/DarDB/column"
+	"github.com/misachi/DarDB/config"
 	st "github.com/misachi/DarDB/storage"
 )
 
-var TableMgr map[string]*st.BlockMgr
+var TableMgr map[string]*st.BufferPoolMgr
 
 /* TableInfo represents table meta data */
 type TableInfo struct {
@@ -17,28 +18,31 @@ type TableInfo struct {
 	NumRecords int64           `json:"num_records,omitempty"`
 	Name       string          `json:"name,omitempty"`
 	Location   string          `json:"location,omitempty"`
+	Path       string          `json:"path,omitempty"`
 	Pkey       column.Column   `json:"pkey,omitempty"`
 	Column     []column.Column `json:"schema,omitempty"`
 }
 
 type Table struct {
-	mgr  *st.BlockMgr
+	mgr  *st.BufferPoolMgr
 	info *TableInfo
 }
 
-func NewTable(r io.Reader, tblInfo *TableInfo) (*Table, error) {
-	// data, err := os.ReadFile(tblName)
-	// if err != nil {
-	// 	return nil, fmt.Errorf("NewTable: os.ReadFile\n %v", err)
-	// }
-	m, err := st.NewBlockMgr(r, -1)
+func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, error) {
+	tblPath := path.Join(cfg.DataPath(), dbName, tblInfo.Name)
+	m, err := st.NewBufferPoolMgr(5, tblPath)
 	if err != nil {
 		return nil, fmt.Errorf("NewTable: unable to create a new manager\n %v", err)
 	}
+
 	return &Table{
 		mgr:  m,
 		info: tblInfo,
 	}, nil
+}
+
+func (tbl *Table) AddRecord(colName string, fieldVal []byte) bool {
+	
 }
 
 func NewTableInfo(name string, location string, cols []column.Column, pkey column.Column) *TableInfo {
@@ -50,24 +54,15 @@ func NewTableInfo(name string, location string, cols []column.Column, pkey colum
 	}
 }
 
-func dSerialize(r io.Reader, td *TableInfo) error {
-	mgr, err := st.NewBlockMgr(r, -1)
+func DSerialize(td *TableInfo) error {
+	dsk := st.NewDiskMgr(td.Path)
+	data := make([]byte, dsk.Size())
+	_, err := dsk.Read(data)
 	if err != nil {
-		return fmt.Errorf("dSerialize table metadata: unable to create a new manager\n %v", err)
+		return fmt.Errorf("dSerialize: read error %v", err)
 	}
-	blockW := mgr.BlockW()
-	data := make([]byte, 0)
-	for blockW.Block != nil {
-		recs, _ := blockW.Block.Records()
-		for _, record := range recs {
-			field := record.(*st.VarLengthRecord).Field()
-			data = append(data, field...)
-		}
 
-		blockW = blockW.Next()
-	}
-	err = json.Unmarshal(data, td)
-	if err != nil {
+	if err = json.Unmarshal(data, td); err != nil {
 		return fmt.Errorf("dSerialize table metadata: Unmarshal error %v", err)
 	}
 	return nil

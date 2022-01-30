@@ -1,29 +1,36 @@
 package database
 
 import (
-	"bytes"
 	"fmt"
 	"os"
+	"path"
 
 	"github.com/misachi/DarDB/column"
+	"github.com/misachi/DarDB/config"
 	tbl "github.com/misachi/DarDB/table"
 )
 
-const (
-	DATA_DIR = "/tmp/%s/%s"
-	META_DIR = "/tmp/%s/%s/.meta/"
-)
-
 type DB struct {
-	name  string
-	table map[string]*tbl.Table
+	name   string
+	table  map[string]*tbl.Table
+	config *config.Config
 	// tableData map[string]*tbl.TableInfo
 }
 
-func NewDB(dbName string) *DB {
-	return &DB{
-		name: dbName,
+func NewDB(dbName string, cfg *config.Config) *DB {
+	dbPath := path.Join(cfg.DataPath(), dbName)
+	err := os.MkdirAll(dbPath, os.ModeDir)
+	if err != nil {
+		return nil
 	}
+	return &DB{
+		name:   dbName,
+		config: cfg,
+	}
+}
+
+func openRWCreate(file string) (*os.File, error) {
+	return os.OpenFile(file, os.O_CREATE|os.O_RDWR, 0644)
 }
 
 func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE, pkey column.Column) (*tbl.Table, error) {
@@ -38,16 +45,34 @@ func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE,
 		}
 	}
 	schema = append(schema, varLenKeys...)
-	infoLocation := fmt.Sprintf(META_DIR, db.name, tblName)
-	dataLocation := fmt.Sprintf(DATA_DIR, db.name, tblName)
-	tblInfo := tbl.NewTableInfo(tblName, infoLocation, schema, pkey)
+	infoDir := path.Join(db.config.DataPath(), db.name, tblName)
+	dataDir := path.Join(db.config.DataPath(), db.name, tblName, ".meta")
 
-	tblData, err := os.ReadFile(dataLocation)
+	err := os.MkdirAll(infoDir, os.ModeDir)
 	if err != nil {
-		return nil, fmt.Errorf("CreateTable: ReadFile error")
+		return nil, fmt.Errorf("CreateTable: MkdirAll error %v", err)
 	}
-	r := bytes.NewReader(tblData)
-	tb, err := tbl.NewTable(r, tblInfo)
+
+	err = os.MkdirAll(dataDir, os.ModeDir)
+	if err != nil {
+		return nil, fmt.Errorf("CreateTable: MkdirAll error %v", err)
+	}
+
+	dataFile, err := openRWCreate(path.Join(dataDir, tblName))
+	if err != nil {
+		return nil, fmt.Errorf("CreateTable: data file error %v", err)
+	}
+	defer dataFile.Close()
+
+	infoFile, err := openRWCreate(path.Join(infoDir, tblName))
+	if err != nil {
+		return nil, fmt.Errorf("CreateTable: meta file error %v", err)
+	}
+	defer infoFile.Close()
+
+	tblInfo := tbl.NewTableInfo(tblName, infoFile.Name(), schema, pkey)
+
+	tb, err := tbl.NewTable(db.name, tblInfo, db.config)
 	if err != nil {
 		return nil, fmt.Errorf("CreateTable: NewTable error %v", err)
 	}
@@ -58,4 +83,3 @@ func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE,
 func (db *DB) AddRecord(tbl *tbl.Table, data map[string][]byte) bool {
 	return false
 }
-

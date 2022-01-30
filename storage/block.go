@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
+	"sync"
 )
 
 var (
@@ -20,134 +20,146 @@ type Record interface {
 }
 
 type Block struct {
+	blockId     int
+	isDirty     bool
+	pinCount    int
 	size        int            // Current size of bloc contents on storage device
 	recLocation []LocationPair // Contains list of two items (Record offset, Record size)
 	records     []byte
+	mut         *sync.RWMutex
 }
 
-type blockW struct {
-	next  *blockW
-	Block *Block
-}
+// type blockW struct {
+// 	next  *blockW
+// 	Block *Block
+// }
 
-func (bw blockW) Next() blockW {
-	return *bw.next
-}
+// func (bw blockW) Next() blockW {
+// 	return *bw.next
+// }
 
-type BlockMgr struct {
-	memBlock  *blockW // Blocks in memory
-	freeBlock *blockW // Blocks with free space
-}
+// type BlockMgr struct {
+// 	memBlock  *blockW // Blocks in memory
+// 	freeBlock *blockW // Blocks with free space
+// }
 
-func createBlockQ(data []byte) (*blockW, error) {
-	head := new(blockW)
-	var prev *blockW
-	var next = head
-	for len(data) > 0 {
-		sizeIdx := bytes.IndexByte(data, Term)
-		size, err := ByteArrayToInt(bytes.NewReader(data[:sizeIdx]))
-		if err != nil {
-			return nil, fmt.Errorf("createBlockQ error: unable to convert byte array to integer %v", err)
-		}
-		newBlock, err := NewBlock(data[:size])
-		if err != nil {
-			return nil, fmt.Errorf("createBlockQ error: %v", err)
-		}
-		next.Block = newBlock
-		if prev != nil {
-			prev.next = next
-		}
-		prev = next
-		next = new(blockW)
-		data = data[size:]
-	}
-	return head, nil
-}
+// func createBlockQ(data []byte) (*blockW, error) {
+// 	head := new(blockW)
+// 	var prev *blockW
+// 	var next = head
+// 	for len(data) > 0 {
+// 		sizeIdx := bytes.IndexByte(data, Term)
+// 		size, err := ByteArrayToInt(bytes.NewReader(data[:sizeIdx]))
+// 		if err != nil {
+// 			return nil, fmt.Errorf("createBlockQ error: unable to convert byte array to integer %v", err)
+// 		}
+// 		newBlock, err := NewBlock(data[:size])
+// 		if err != nil {
+// 			return nil, fmt.Errorf("createBlockQ error: %v", err)
+// 		}
+// 		next.Block = newBlock
+// 		if prev != nil {
+// 			prev.next = next
+// 		}
+// 		prev = next
+// 		next = new(blockW)
+// 		data = data[size:]
+// 	}
+// 	return head, nil
+// }
 
-func load(r io.Reader, b *BlockMgr, limit int) error {
-	buf := make([]byte, limit)
-	_, err := io.ReadAtLeast(r, buf, 1)
-	if err != nil {
-		return fmt.Errorf("load error: %v", err)
-	}
+// func load(r io.Reader, b *BlockMgr, limit int) error {
+// 	buf := make([]byte, limit)
+// 	_, err := io.ReadAtLeast(r, buf, 1)
+// 	if err != nil {
+// 		return fmt.Errorf("load error: %v", err)
+// 	}
 
-	curr, err := createBlockQ(buf)
-	if err != nil {
-		return fmt.Errorf("load error: %v", err)
-	}
+// 	curr, err := createBlockQ(buf)
+// 	if err != nil {
+// 		return fmt.Errorf("load error: %v", err)
+// 	}
 
-	if b.memBlock == nil {
-		b.memBlock = curr
-	} else {
-		b.memBlock.next = curr
-	}
-	return nil
-}
+// 	if b.memBlock == nil {
+// 		b.memBlock = curr
+// 	} else {
+// 		b.memBlock.next = curr
+// 	}
+// 	return nil
+// }
 
-func loadAll(r io.Reader, b *BlockMgr) error {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return fmt.Errorf("loadAll io.ReadAll error: %v", err)
-	}
+// func loadAll(r io.Reader, b *BlockMgr) error {
+// 	data, err := io.ReadAll(r)
+// 	if err != nil {
+// 		return fmt.Errorf("loadAll io.ReadAll error: %v", err)
+// 	}
 
-	curr, err := createBlockQ(data)
-	if err != nil {
-		return fmt.Errorf("loadAll error: %v", err)
-	}
-	b.memBlock = curr
-	return nil
-}
+// 	curr, err := createBlockQ(data)
+// 	if err != nil {
+// 		return fmt.Errorf("loadAll error: %v", err)
+// 	}
+// 	b.memBlock = curr
+// 	return nil
+// }
 
-func NewBlockMgr(r io.Reader, limit int) (*BlockMgr, error) {
+// func NewBlockMgr(r io.Reader, limit int) (*BlockMgr, error) {
 
-	block := new(BlockMgr)
-	var err error
+// 	block := new(BlockMgr)
+// 	var err error
 
-	if limit < 1 {
-		err = loadAll(r, block)
-	} else {
-		err = load(r, block, limit)
-	}
+// 	if limit < 1 {
+// 		err = loadAll(r, block)
+// 	} else {
+// 		err = load(r, block, limit)
+// 	}
 
-	if err != nil {
-		return nil, fmt.Errorf("NewBlockMgr error: %v", err)
-	}
-	return block, nil
-}
+// 	if err != nil {
+// 		return nil, fmt.Errorf("NewBlockMgr error: %v", err)
+// 	}
+// 	return block, nil
+// }
 
-func (m BlockMgr) BlockW() blockW {
-	return *m.memBlock
-}
+// func (m BlockMgr) BlockW() blockW {
+// 	return *m.memBlock
+// }
 
-func (m BlockMgr) NumBlocks() int {
-	next := m.memBlock
-	count := 0
-	for next != nil {
-		count += 1
-		next = next.next
-	}
-	return count
-}
+// func (m BlockMgr) NumBlocks() int {
+// 	next := m.memBlock
+// 	count := 0
+// 	for next != nil {
+// 		count += 1
+// 		next = next.next
+// 	}
+// 	return count
+// }
 
-func (m BlockMgr) NumRecords() int {
-	next := m.memBlock
-	count := 0
-	for next != nil {
-		count += next.Block.size
-		next = next.next
-	}
-	return count
-}
+// func (m BlockMgr) NumRecords() int {
+// 	next := m.memBlock
+// 	count := 0
+// 	for next != nil {
+// 		count += next.Block.size
+// 		next = next.next
+// 	}
+// 	return count
+// }
 
-func NewBlock(data []byte) (*Block, error) {
+func NewBlock(data []byte, blkID int) (*Block, error) {
 	if len(data) < 1 {
 		return &Block{}, nil
 	}
 	copyData := make([]byte, len(data))
 	copy(copyData, data)
 	szOffset := bytes.IndexByte(copyData, Term)
+	if szOffset < 0 {
+		szOffset = 0
+	}
 	locOffset := bytes.IndexByte(copyData[szOffset+1:], Term)
+	if locOffset < 0 {
+		locOffset = 0
+	}
 	records := copyData[locOffset+1:]
+
+	// fmt.Printf("copyData: %d szOffset: %d\n", len(copyData), szOffset)
 	reader := bytes.NewReader(copyData[:szOffset])
 	sz, err := ByteArrayToInt(reader)
 	if err != nil {
@@ -163,7 +175,13 @@ func NewBlock(data []byte) (*Block, error) {
 		size:        int(sz),
 		recLocation: *locations,
 		records:     records,
+		mut:         new(sync.RWMutex),
+		blockId:     blkID,
 	}, nil
+}
+
+func (b *Block) toByte() []byte {
+	return []byte("")
 }
 
 func (b *Block) AddRecord(data []byte) error {
@@ -180,6 +198,7 @@ func (b *Block) AddRecord(data []byte) error {
 	b.recLocation = append(b.recLocation, *locationPair)
 	b.records = append(b.records, data...)
 	b.size += length
+	b.isDirty = true
 	return nil
 }
 
@@ -222,9 +241,12 @@ func (b *Block) UpdateFiteredRecords(colData columnData, fieldName string, searc
 			return fmt.Errorf("UpdateFiteredRecords: Unable to initialize record %v", err)
 		}
 		if field := record.GetField(colData, fieldName); bytes.Equal(field, searchVal) {
+			b.size -= record.(*VarLengthRecord).RecordSize()
 			record.UpdateField(colData, fieldName, newVal)
+			b.size += record.(*VarLengthRecord).RecordSize()
 		}
 	}
+	b.isDirty = true
 	return nil
 }
 
@@ -235,7 +257,10 @@ func (b *Block) UpdateRecords(colData columnData, fieldName string, fieldVal []b
 		if err != nil {
 			return fmt.Errorf("UpdateRecords: Unable to initialize record %v", err)
 		}
+		b.size -= record.(*VarLengthRecord).RecordSize()
 		record.UpdateField(colData, fieldName, fieldVal)
+		b.size += record.(*VarLengthRecord).RecordSize()
 	}
+	b.isDirty = true
 	return nil
 }

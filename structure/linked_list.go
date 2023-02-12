@@ -6,6 +6,10 @@ type Value struct {
 	next *Value
 }
 
+func (v *Value) Data() interface{} {
+	return v.data
+}
+
 func (v *Value) Next() *Value {
 	if v.next != nil {
 		return v.next
@@ -20,7 +24,11 @@ type List struct {
 }
 
 func NewList() *List {
-	return new(List)
+	return &List{
+		size: 0,
+		head: nil,
+		next: nil,
+	}
 }
 
 func (l *List) Push(_key interface{}, _data interface{}) {
@@ -72,6 +80,6 @@ func (l *List) Remove(key interface{}) {
 	}
 }
 
-func (l *List) Head() interface{} {
+func (l List) Head() interface{} {
 	return l.head
 }

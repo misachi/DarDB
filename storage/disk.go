@@ -1,19 +1,25 @@
 package storage
 
-import "os"
+import (
+	"fmt"
+	"os"
+)
 
 type DiskMgr struct {
 	file *os.File
 	size int64
 }
 
-func NewDiskMgr(fName string) *DiskMgr {
+func NewDiskMgr(fName string) (*DiskMgr, error) {
 	f, err := os.Open(fName)
-	fInfo, _ := f.Stat()
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("NewDiskMgr: os.Open error %v", err)
 	}
-	return &DiskMgr{file: f, size: fInfo.Size()}
+	fInfo, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("NewDiskMgr: Stat error %v", err)
+	}
+	return &DiskMgr{file: f, size: fInfo.Size()}, nil
 }
 
 func (d *DiskMgr) Size() int64 {

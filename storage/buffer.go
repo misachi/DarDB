@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"reflect"
 
 	ds "github.com/misachi/DarDB/structure"
 )
@@ -22,7 +23,10 @@ type BufferPoolMgr struct {
 }
 
 func NewBufferPoolMgr(psize int, fName string) (*BufferPoolMgr, error) {
-	mgr := NewDiskMgr(fName)
+	mgr, err := NewDiskMgr(fName)
+	if err != nil {
+		return nil, fmt.Errorf("NewBufferPoolMgr: Unable to create new manager %v\n", err)
+	}
 	return &BufferPoolMgr{
 		poolSize:    psize,
 		diskManager: mgr,
@@ -81,7 +85,7 @@ func (buf *BufferPoolMgr) GetFree(sz int) *Block {
 	}
 
 	// We don't have a free block in the freeList
-	if blk == nil {
+	if reflect.ValueOf(blk.(*ds.Value)).IsNil() {
 		data := make([]byte, 0)
 		fileSize := buf.diskManager.Size()
 		_blk, err := NewBlock(data, int(fileSize))
@@ -99,7 +103,7 @@ func (buf *BufferPoolMgr) GetFree(sz int) *Block {
 
 func (buf *BufferPoolMgr) flushBlock(blockID int, blk *Block) {
 	buf.diskManager.Seek(int64(blockID), 0)
-	buf.diskManager.Write(blk.toByte())
+	buf.diskManager.Write(blk.ToByte())
 	buf.freeList.Push(blockID, blk)
 	buf.block.Remove(blockID)
 }

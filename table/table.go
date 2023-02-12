@@ -29,7 +29,7 @@ type Table struct {
 }
 
 func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, error) {
-	tblPath := path.Join(cfg.DataPath(), dbName, tblInfo.Name)
+	tblPath := path.Join(cfg.DataPath(), dbName, tblInfo.Name, fmt.Sprintf("%s.data", tblInfo.Name))
 	m, err := st.NewBufferPoolMgr(5, tblPath)
 	if err != nil {
 		return nil, fmt.Errorf("NewTable: unable to create a new manager\n %v", err)
@@ -39,6 +39,14 @@ func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, er
 		mgr:  m,
 		info: tblInfo,
 	}, nil
+}
+
+func (tbl *Table) GetInfo() *TableInfo {
+	return tbl.info
+}
+
+func (tbl *Table) Flush() {
+	tbl.mgr.FlushBlock(0)
 }
 
 func (tbl *Table) AddRecord(cols []column.Column, fieldVals [][]byte) (bool, error) {
@@ -54,9 +62,14 @@ func (tbl *Table) AddRecord(cols []column.Column, fieldVals [][]byte) (bool, err
 	if err != nil {
 		return false, fmt.Errorf("AddRecord: record error %v", err)
 	}
-	blk.AddRecord(record.ToByte())
+	if err := blk.AddRecord(record.ToByte()); err != nil {
+		return false, fmt.Errorf("AddRecord: %v", err)
+	}
+	fmt.Printf("blk: %d\n", blk.BlockID())
 	return true, nil
 }
+
+func (tbl *Table) GetRecord() {}
 
 func NewTableInfo(name string, location string, cols []column.Column, pkey column.Column) *TableInfo {
 	return &TableInfo{
@@ -68,15 +81,18 @@ func NewTableInfo(name string, location string, cols []column.Column, pkey colum
 }
 
 func DSerialize(td *TableInfo) error {
-	dsk := st.NewDiskMgr(td.Path)
-	data := make([]byte, dsk.Size())
-	_, err := dsk.Read(data)
+	dsk, err := st.NewDiskMgr(td.Path)
 	if err != nil {
-		return fmt.Errorf("dSerialize: read error %v", err)
+		return fmt.Errorf("DSerialize:  st.NewDiskMgr %v", err)
+	}
+	data := make([]byte, dsk.Size())
+	_, err = dsk.Read(data)
+	if err != nil {
+		return fmt.Errorf("DSerialize: read error %v", err)
 	}
 
 	if err = json.Unmarshal(data, td); err != nil {
-		return fmt.Errorf("dSerialize table metadata: Unmarshal error %v", err)
+		return fmt.Errorf("DSerialize table metadata: Unmarshal error %v", err)
 	}
 	return nil
 }

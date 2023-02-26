@@ -67,12 +67,11 @@ func ByteArrayToInt(r io.Reader) (int64, error) {
 }
 
 func NewVarLengthRecord(cols []column.Column, data [][]byte) (*VarLengthRecord, error) {
-	mu := new(sync.Mutex)
+	mu := NewLock()
 	if len(data) < 1 {
 		return &VarLengthRecord{
-			recordHeader: recordHeader{0, []LocationPair{{0, 0}}},
+			recordHeader: recordHeader{false, mu, 0, []LocationPair{{0, 0}}},
 			field:        []byte{},
-			mtx:          mu,
 		}, nil
 	}
 	var nullField NullField_T

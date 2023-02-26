@@ -43,6 +43,8 @@ func (l LocationPair) Offset() Location_T { return l.offset }
 func (l LocationPair) Size() Location_T   { return l.size }
 
 type recordHeader struct {
+	isLocked  bool
+	rowLock  *Lock
 	nullField NullField_T
 	location  []LocationPair
 }
@@ -50,7 +52,6 @@ type recordHeader struct {
 type VarLengthRecord struct {
 	recordHeader
 	field []byte
-	mtx   *sync.Mutex
 }
 
 func ByteArrayToInt(r io.Reader) (int64, error) {

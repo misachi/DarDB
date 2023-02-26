@@ -49,6 +49,28 @@ func NewLock() *Lock {
 	}
 }
 
+func (l *Lock) AcquireLock(mode int) error {
+	if mode == EXCLUSIVE_LOCK {
+		l.acquireExclusiveLock()
+	} else if mode == SHARED_LOCK {
+		l.acquireSharedLock()
+	} else {
+		return fmt.Errorf("UnlockEntry: unknown lock type")
+	}
+	return nil
+}
+
+func (l *Lock) ReleaseLock() error {
+	if l.lockType == EXCLUSIVE_LOCK {
+		l.releaseExclusiveLock()
+	} else if l.lockType == SHARED_LOCK {
+		l.releaseSharedLock()
+	} else {
+		return fmt.Errorf("UnlockEntry: unknown lock type")
+	}
+	return nil
+}
+
 func (l *Lock) acquireSharedLock() error {
 	l.sharedLockCount++
 	return nil

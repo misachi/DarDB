@@ -274,9 +274,6 @@ func (v *VarLengthRecord) updateLocation(location LocationPair, offset, size Loc
 }
 
 func (v VarLengthRecord) GetField(colData columnData, key string) []byte {
-	v.mtx.Lock()
-	defer v.mtx.Unlock()
-
 	// colData := NewColumnData()
 	col, err := colData.column(key)
 
@@ -338,8 +335,6 @@ func isNumber(value []byte) bool {
 }
 
 func (v *VarLengthRecord) AddField(colData columnData, key string, value []byte) {
-	v.mtx.Lock()
-	defer v.mtx.Unlock()
 
 	var bufSize Location_T
 	for _, loc := range v.location {
@@ -370,9 +365,6 @@ func (v *VarLengthRecord) AddField(colData columnData, key string, value []byte)
 }
 
 func (v *VarLengthRecord) UpdateField(colData columnData, key string, value []byte) {
-	v.mtx.Lock()
-	defer v.mtx.Unlock()
-
 	// colData := NewColumnData()
 	idx, _ := colData.index(key)
 	offset := 0

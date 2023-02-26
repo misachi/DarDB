@@ -104,19 +104,17 @@ func NewVarLengthRecord(cols []column.Column, data [][]byte) (*VarLengthRecord, 
 		field = append(field, data[i]...)
 	}
 	return &VarLengthRecord{
-		recordHeader: recordHeader{nullField: nullField, location: location},
+		recordHeader: recordHeader{isLocked: false, rowLock: mu, nullField: nullField, location: location},
 		field:        field,
-		mtx:          mu,
 	}, nil
 }
 
 func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
-	mu := &sync.Mutex{}
+	mu := NewLock()
 	if len(data) < 1 {
 		return &VarLengthRecord{
-			recordHeader: recordHeader{0, []LocationPair{{0, 0}}},
+			recordHeader: recordHeader{false, mu, 0, []LocationPair{{0, 0}}},
 			field:        []byte{},
-			mtx:          mu,
 		}, nil
 	}
 	termIdx := bytes.IndexByte(data, Term) // first terminator - for nullfield
@@ -131,13 +129,14 @@ func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
 		return nil, fmt.Errorf("NewVarLengthRecordWithHDR: %v", err)
 	}
 	recHDR := recordHeader{
+		isLocked: false,
+		rowLock: mu,
 		nullField: NullField_T(nField),
 		location:  *location,
 	}
 	return &VarLengthRecord{
 		recordHeader: recHDR,
 		field:        data[locationEnd+termIdx+2:],
-		mtx:          mu,
 	}, nil
 }
 

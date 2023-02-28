@@ -11,9 +11,9 @@ type DiskMgr struct {
 }
 
 func NewDiskMgr(fName string) (*DiskMgr, error) {
-	f, err := os.Open(fName)
+	f, err := os.OpenFile(fName, os.O_RDWR|os.O_APPEND, 0750)
 	if err != nil {
-		return nil, fmt.Errorf("NewDiskMgr: os.Open error %v", err)
+		return nil, fmt.Errorf("NewDiskMgr: os.OpenFile error %v", err)
 	}
 	fInfo, err := f.Stat()
 	if err != nil {

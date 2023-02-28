@@ -31,5 +31,3 @@ func (t *Transaction) Commit() {}
 
 func (t *Transaction) Rollback() {}
 
-// Cortec - he
-// MobiKash

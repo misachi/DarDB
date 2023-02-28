@@ -1,7 +1,6 @@
 package transaction
 
 import (
-	"sync"
 
 	ds "github.com/misachi/DarDB/structure"
 )
@@ -19,7 +18,6 @@ type TransactionManager struct {
 	deleteTransactions *ds.List
 	currentTimestamp   txn_t
 	currentTransaction *Transaction
-	mut                *sync.Mutex
 }
 
 type Transaction struct {

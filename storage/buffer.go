@@ -25,7 +25,7 @@ type BufferPoolMgr struct {
 func NewBufferPoolMgr(psize int, fName string) (*BufferPoolMgr, error) {
 	mgr, err := NewDiskMgr(fName)
 	if err != nil {
-		return nil, fmt.Errorf("NewBufferPoolMgr: Unable to create new manager %v\n", err)
+		return nil, fmt.Errorf("NewBufferPoolMgr: Unable to create new manager %v", err)
 	}
 	return &BufferPoolMgr{
 		poolSize:    psize,
@@ -101,11 +101,19 @@ func (buf *BufferPoolMgr) GetFree(sz int) *Block {
 	return nil
 }
 
-func (buf *BufferPoolMgr) flushBlock(blockID int, blk *Block) {
-	buf.diskManager.Seek(int64(blockID), 0)
-	buf.diskManager.Write(blk.ToByte())
+func (buf *BufferPoolMgr) flushBlock(blockID int, blk *Block) error {
+	_, err := buf.diskManager.Seek(int64(blockID), 0)
+	if err != nil {
+		return fmt.Errorf("flushBlock Seek: %v", err)
+	}
+	_, err = buf.diskManager.Write(blk.ToByte())
+	if err != nil {
+		return fmt.Errorf("flushBlock Write: %v", err)
+	}
+	buf.diskManager.Flush()
 	buf.freeList.Push(blockID, blk)
-	buf.block.Remove(blockID)
+	// buf.block.Remove(blockID)
+	return nil
 }
 
 func (buf *BufferPoolMgr) FlushBlock(blockID int) {

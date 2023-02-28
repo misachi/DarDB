@@ -17,6 +17,8 @@ type Record interface {
 	GetField(colData columnData, key string) []byte
 	UpdateField(colData columnData, key string, value []byte)
 	AddField(colData columnData, key string, value []byte)
+	LockRecord(lType int)
+	UnLockRecord()
 }
 
 type Block struct {

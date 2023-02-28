@@ -65,7 +65,6 @@ func (tbl *Table) AddRecord(cols []column.Column, fieldVals [][]byte) (bool, err
 	if err := blk.AddRecord(record.ToByte()); err != nil {
 		return false, fmt.Errorf("AddRecord: %v", err)
 	}
-	fmt.Printf("blk: %d\n", blk.BlockID())
 	return true, nil
 }
 

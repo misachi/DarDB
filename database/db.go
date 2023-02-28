@@ -59,7 +59,7 @@ func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE,
 		return nil, fmt.Errorf("CreateTable: MkdirAll dataDir error %v", err)
 	}
 
-	dataFile, err := openRWCreate(path.Join(dataDir, fmt.Sprintf("%s.data", tblName)))
+	dataFile, err := openRWCreate(path.Join(dataDir, fmt.Sprintf("%s.meta", tblName)))
 	if err != nil {
 		return nil, fmt.Errorf("CreateTable: data file error %v", err)
 	}
@@ -99,6 +99,10 @@ func (db *DB) AddRecord(tbl *tbl.Table, data map[string][]byte) error {
 		return fmt.Errorf("DB AddRecord: %v\n", err)
 	}
 	return nil
+}
+
+func (db *DB) Flush(tblName string) {
+	db.table[tblName].Flush()
 }
 
 // func (db *DB) GetRecord(fieldKey string, fieldVal []byte) st.VarLengthRecord {

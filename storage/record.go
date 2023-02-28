@@ -44,8 +44,8 @@ func (l LocationPair) Size() Location_T   { return l.size }
 
 type recordHeader struct {
 	isLocked  bool
-	rowLock  *Lock
 	nullField NullField_T
+	rowLock  *Lock
 	location  []LocationPair
 }
 
@@ -141,8 +141,10 @@ func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
 }
 
 type FixedLengthRecord struct {
+	isLocked  bool
 	nullField NullField_T
 	field     []byte
+	rowLock  *Lock
 	mtx       *sync.Mutex
 }
 
@@ -222,6 +224,14 @@ func (v VarLengthRecord) Field() []byte {
 
 func (v VarLengthRecord) fieldIsNull(bitmask NullField_T) bool {
 	return IsNull(bitmask, v.nullField)
+}
+
+func (v *VarLengthRecord) LockRecord(lType int) {
+	v.rowLock.AcquireLock(lType)
+}
+
+func (v *VarLengthRecord) UnLockRecord() {
+	v.rowLock.ReleaseLock()
 }
 
 func intToByte(i int) []byte {
@@ -431,4 +441,12 @@ func (f *FixedLengthRecord) UpdateField(key string, value []byte) {
 	f.field = append(
 		f.field[:location.offset],
 		append(value, f.field[location.offset+location.size:]...)...)
+}
+
+func (f *FixedLengthRecord) LockRecord(lType int) {
+	f.rowLock.AcquireLock(lType)
+}
+
+func (f *FixedLengthRecord) UnLockRecord() {
+	f.rowLock.ReleaseLock()
 }

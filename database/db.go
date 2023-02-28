@@ -33,7 +33,7 @@ func NewDB(dbName string, cfg *config.Config) *DB {
 }
 
 func openRWCreate(file string) (*os.File, error) {
-	return os.OpenFile(file, os.O_CREATE|os.O_RDWR, 0644)
+	return os.OpenFile(file, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0750)
 }
 
 func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE, pkey column.Column) (*tbl.Table, error) {

@@ -16,23 +16,44 @@ type Pool interface {
 }
 
 type BufferPoolMgr struct {
-	poolSize    int
+	poolSize    int64 // number of blocks
 	diskManager *DiskMgr
 	block       Pool
 	freeList    Pool
 }
 
-func NewBufferPoolMgr(psize int, fName string) (*BufferPoolMgr, error) {
+const (
+	ALIGN = BLKSIZE
+	ALIGN_MASK = (ALIGN - 1)
+)
+
+func isAligned(val int64) bool {
+	return (val & ALIGN_MASK) == 0
+}
+
+func alignBlock(sz int64) int64 {
+	if isAligned(sz) {
+		return sz
+	} else {
+		return ((sz + ALIGN_MASK) & ^ALIGN_MASK)
+	}
+}
+
+func NewBufferPoolMgr(psize int64, fName string) (*BufferPoolMgr, error) {
 	mgr, err := NewDiskMgr(fName)
 	if err != nil {
 		return nil, fmt.Errorf("NewBufferPoolMgr: Unable to create new manager %v", err)
 	}
 	return &BufferPoolMgr{
-		poolSize:    psize,
+		poolSize:    alignBlock(mgr.Size())/BLKSIZE,
 		diskManager: mgr,
 		block:       ds.NewList(),
 		freeList:    ds.NewList(),
 	}, nil
+}
+
+func (buf *BufferPoolMgr) NumBlocks() int64 {
+	return buf.poolSize
 }
 
 func (buf *BufferPoolMgr) Load() error {

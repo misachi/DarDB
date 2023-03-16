@@ -69,17 +69,18 @@ func (buf *BufferPoolMgr) Load() error {
 			break
 		}
 		blk, err := NewBlock(fData[:BLKSIZE], blockID)
+		buf.poolSize += 1
 		if err != nil {
 			return fmt.Errorf("Load: error creating new block %v", err)
 		}
-		buf.block.Push(blk.blockId, blk)
+		buf.block.Push(int64(blk.blockId), blk)
 		fData = fData[BLKSIZE:]
 		blockID += 1
 	}
 	return nil
 }
 
-func (buf *BufferPoolMgr) GetBlock(blockId int) (*Block, error) {
+func (buf *BufferPoolMgr) GetBlock(blockId int64) (*Block, error) {
 	if blk := buf.block.Get(blockId); blk != nil {
 		return blk.(*Block), nil
 	}

@@ -150,12 +150,16 @@ type FixedLengthRecord struct {
 	isLocked  bool
 	nullField NullField_T
 	field     []byte
-	rowLock  *Lock
+	rowLock   *Lock
 	mtx       *sync.Mutex
 }
 
 type columnData struct {
 	keys []column.Column
+}
+
+func NewColumnData_(columns []column.Column) columnData {
+	return columnData{columns}
 }
 
 func (cd columnData) column(name string) (column.Column, error) {

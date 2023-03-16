@@ -78,29 +78,32 @@ func NewVarLengthRecord(cols []column.Column, data [][]byte) (*VarLengthRecord, 
 	var location []LocationPair
 	field := make([]byte, 0)
 	dataLen := len(data)
+
 	for i, key := range cols {
 		if i >= dataLen {
 			nullField = nullField & ^(1 << i)
 			continue
 		}
+
 		_len := len(data[i])
 		if _len > 0 {
 			nullField = nullField | (1 << i)
 		}
-		if column.GetTypeSize(key.Type) < 0 {
-			var offset Location_T
+
+		var offset Location_T = 0
+		if key.Type == String {
 			if len(location) < 1 {
 				field = append(field, '\n')
-				offset = 0
 			} else {
 				offset = location[len(location)-1].offset + location[len(location)-1].size + 1
 			}
-			location = append(location, *NewLocationPair(offset, Location_T(_len)))
 		} else {
 			if i > 0 {
 				field = append(field, ':')
+				offset = location[len(location)-1].offset + location[len(location)-1].size + 1
 			}
 		}
+		location = append(location, *NewLocationPair(offset, Location_T(_len)))
 		field = append(field, data[i]...)
 	}
 	return &VarLengthRecord{

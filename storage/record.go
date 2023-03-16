@@ -45,7 +45,7 @@ func (l LocationPair) Size() Location_T   { return l.size }
 type recordHeader struct {
 	isLocked  bool
 	nullField NullField_T
-	rowLock  *Lock
+	rowLock   *Lock
 	location  []LocationPair
 }
 

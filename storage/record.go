@@ -192,7 +192,8 @@ func getFieldLocation(cols columnData, location []LocationPair, key string) *Loc
 func setLocation(lData []byte) (*[]LocationPair, error) {
 	bufSize := len(lData)
 	newBuf := make([]byte, bufSize)
-	location := make([]LocationPair, 0)
+	var location []LocationPair
+
 	if numCopy := copy(newBuf, lData); numCopy != bufSize {
 		return nil, fmt.Errorf("setLocation copy error: expected to copy %d elements but got %d", bufSize, numCopy)
 	}
@@ -203,9 +204,15 @@ func setLocation(lData []byte) (*[]LocationPair, error) {
 	for len(newBuf) > 0 {
 		locSepIdx := bytes.IndexByte(newBuf, byte(locSep))
 		fieldSepIdx := bytes.IndexByte(newBuf, byte(fieldSep))
+
+		if fieldSepIdx == -1 && locSepIdx == -1 {
+			break
+		}
+
 		if locSepIdx == -1 {
 			locSepIdx = len(newBuf)
 		}
+
 		offset, err := ByteArrayToInt(bytes.NewReader(newBuf[:fieldSepIdx]))
 		if err != nil {
 			return nil, fmt.Errorf("setLocation: Unable to set offset: %v", err)

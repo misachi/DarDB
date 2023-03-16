@@ -107,20 +107,31 @@ func (buf *BufferPoolMgr) GetFree(sz int) *Block {
 		blk = buf.freeList.Head()
 	}
 
-	// We don't have a free block in the freeList
 	if reflect.ValueOf(blk.(*ds.Value)).IsNil() {
 		data := make([]byte, 0)
 		fileSize := buf.diskManager.Size()
-		_blk, err := NewBlock(data, int(fileSize))
-		if err != nil {
-			return nil
+		if buf.NumBlocks() <= 0 {
+			_blk, err := NewBlock(data, int(fileSize))
+			if err != nil {
+				return nil
+			}
+			buf.poolSize += 1
+			buf.block.Push(fileSize, _blk)
+			return _blk
+		} else {
+			blkID := buf.NumBlocks() - 1
+			_blk, err := buf.GetBlock(blkID)
+			if err != nil {
+				return nil
+			}
+			buf.block.Push(fileSize, _blk)
+			return _blk
 		}
-		blk = _blk
-		buf.block.Push(fileSize, _blk)
 	}
-	if blk != nil && blk.(*Block).size < sz {
-		return blk.(*Block)
+	if blk != nil && blk.(*ds.Value).Data().(*Block).size > sz {
+		return blk.(*ds.Value).Data().(*Block)
 	}
+
 	return nil
 }
 

@@ -30,7 +30,7 @@ type Table struct {
 
 func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, error) {
 	tblPath := path.Join(cfg.DataPath(), dbName, tblInfo.Name, fmt.Sprintf("%s.data", tblInfo.Name))
-	m, err := st.NewBufferPoolMgr(5, tblPath)
+	m, err := st.NewBufferPoolMgr(0, tblPath)
 	if err != nil {
 		return nil, fmt.Errorf("NewTable: unable to create a new manager\n %v", err)
 	}
@@ -47,6 +47,11 @@ func (tbl *Table) GetInfo() *TableInfo {
 
 func (tbl *Table) Flush() {
 	tbl.mgr.FlushBlock(0)
+	// var i int64 = 0
+	// for i < tbl.mgr.NumBlocks() {
+	// 	tbl.mgr.FlushBlock(int(i))
+	// 	i++
+	// }
 }
 
 func (tbl *Table) AddRecord(cols []column.Column, fieldVals [][]byte) (bool, error) {

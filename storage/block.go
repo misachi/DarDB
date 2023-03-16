@@ -199,13 +199,17 @@ func (b *Block) Records() ([]Record, error) {
 
 func (b Block) FilterRecords(colData columnData, fieldName string, fieldVal []byte) ([]Record, error) {
 	filtered := make([]Record, 0)
-	for _, location := range b.recLocation {
-		record, err := b.getRecordSlice(int(location.offset), int(location.size))
-		if err != nil {
-			return nil, fmt.Errorf("FilterRecords: Unable to initialize record %v", err)
-		}
-		if field := record.GetField(colData, fieldName); bytes.Equal(field, fieldVal) {
-			filtered = append(filtered, record)
+
+	for i, _ := range b.recLocation {
+		if b.recLocation[i].offset >= 0 && b.recLocation[i].size > 0 {
+			record, err := b.getRecordSlice(int(b.recLocation[i].offset), int(b.recLocation[i].size))
+
+			if err != nil {
+				return nil, fmt.Errorf("FilterRecords: Unable to initialize record %v", err)
+			}
+			if field := record.GetField(colData, fieldName); bytes.Equal(field, fieldVal) {
+				filtered = append(filtered, record)
+			}
 		}
 	}
 	return filtered, nil
@@ -215,6 +219,7 @@ func (b *Block) UpdateFiteredRecords(colData columnData, fieldName string, searc
 	// colData := NewColumnData()
 	for _, location := range b.recLocation {
 		record, err := b.getRecordSlice(int(location.offset), int(location.size))
+
 		if err != nil {
 			return fmt.Errorf("UpdateFiteredRecords: Unable to initialize record %v", err)
 		}
@@ -224,17 +229,19 @@ func (b *Block) UpdateFiteredRecords(colData columnData, fieldName string, searc
 			b.size += record.(*VarLengthRecord).RecordSize()
 		}
 	}
+
 	b.isDirty = true
 	return nil
 }
 
 func (b *Block) UpdateRecords(colData columnData, fieldName string, fieldVal []byte) error {
-	// colData := NewColumnData()
 	for _, location := range b.recLocation {
 		record, err := b.getRecordSlice(int(location.offset), int(location.size))
+	
 		if err != nil {
 			return fmt.Errorf("UpdateRecords: Unable to initialize record %v", err)
 		}
+
 		b.size -= record.(*VarLengthRecord).RecordSize()
 		record.UpdateField(colData, fieldName, fieldVal)
 		b.size += record.(*VarLengthRecord).RecordSize()

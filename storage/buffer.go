@@ -140,18 +140,19 @@ func (buf *BufferPoolMgr) flushBlock(blockID int, blk *Block) error {
 	if err != nil {
 		return fmt.Errorf("flushBlock Seek: %v", err)
 	}
+
 	_, err = buf.diskManager.Write(blk.ToByte())
 	if err != nil {
 		return fmt.Errorf("flushBlock Write: %v", err)
 	}
+
 	buf.diskManager.Flush()
-	buf.freeList.Push(blockID, blk)
-	// buf.block.Remove(blockID)
+	buf.freeList.Push(int64(blockID), blk)
 	return nil
 }
 
 func (buf *BufferPoolMgr) FlushBlock(blockID int) {
-	blk := buf.block.Get(blockID)
+	blk := buf.block.Get(int64(blockID))
 	if blk != nil {
 		buf.flushBlock(blockID, blk.(*Block))
 	}

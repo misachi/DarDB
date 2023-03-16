@@ -223,9 +223,15 @@ func setLocation(lData []byte) (*[]LocationPair, error) {
 			return nil, fmt.Errorf("setLocation: Unable to set size: %v", err)
 		}
 
-		location = append(location, *NewLocationPair(Location_T(offset), Location_T(size)))
-		idx += 1
+		if size > 0 {
+			if len(location) <= 0 {
+				location = []LocationPair{*NewLocationPair(Location_T(offset), Location_T(size))}
+			} else {
+				location = append(location, *NewLocationPair(Location_T(offset), Location_T(size)))
+			}
+		}
 
+		idx += 1
 		if (locSepIdx + 1) > len(newBuf) {
 			break
 		}

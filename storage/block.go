@@ -38,6 +38,7 @@ func NewBlock(data []byte, blkID int) (*Block, error) {
 	copyData := make([]byte, len(data))
 	copy(copyData, data)
 	szOffset := bytes.IndexByte(copyData, Term)
+
 	if szOffset < 0 {
 		szOffset = 0
 	}
@@ -45,9 +46,8 @@ func NewBlock(data []byte, blkID int) (*Block, error) {
 	if locOffset < 0 {
 		locOffset = 0
 	}
-	records := copyData[locOffset+1:]
 
-	// fmt.Printf("copyData: %d szOffset: %d\n", len(copyData), szOffset)
+	records := copyData[locOffset+1:]
 	reader := bytes.NewReader(copyData[:szOffset])
 	sz, err := ByteArrayToInt(reader)
 	if err != nil {

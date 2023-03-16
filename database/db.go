@@ -8,7 +8,7 @@ import (
 	"github.com/misachi/DarDB/column"
 	"github.com/misachi/DarDB/config"
 
-	// st "github.com/misachi/DarDB/storage"
+	st "github.com/misachi/DarDB/storage"
 	tbl "github.com/misachi/DarDB/table"
 )
 
@@ -33,7 +33,7 @@ func NewDB(dbName string, cfg *config.Config) *DB {
 }
 
 func openRWCreate(file string) (*os.File, error) {
-	return os.OpenFile(file, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0750)
+	return os.OpenFile(file, os.O_CREATE|os.O_RDWR, 0750)
 }
 
 func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE, pkey column.Column) (*tbl.Table, error) {
@@ -96,9 +96,17 @@ func (db *DB) AddRecord(tbl *tbl.Table, data map[string][]byte) error {
 	}
 	_, err := tbl.AddRecord(fields, fieldVals)
 	if err != nil {
-		return fmt.Errorf("DB AddRecord: %v\n", err)
+		return fmt.Errorf("DB AddRecord: %v", err)
 	}
 	return nil
+}
+
+func (db *DB) GetRecord(tbl *tbl.Table, colName string, colVal []byte) ([]st.Record, error) {
+	records, err := tbl.GetRecord(colName, colVal)
+	if err != nil {
+		return nil, fmt.Errorf("GetRecord: Unable to retrieve table records: %v", err)
+	}
+	return records, nil
 }
 
 func (db *DB) Flush(tblName string) {

@@ -264,14 +264,17 @@ func (v VarLengthRecord) ToByte() []byte {
 	retData := intToByte(int(v.nullField))
 	retData = append(retData, Term)
 	locSize := len(v.location)
+
 	for i, location := range v.location {
 		retData = append(retData, intToByte(int(location.offset))...)
 		retData = append(retData, LocationSep)
 		retData = append(retData, intToByte(int(location.size))...)
+
 		if i < (locSize - 1) {
 			retData = append(retData, FieldSep)
 		}
 	}
+
 	retData = append(retData, Term)
 	retData = append(retData, v.field...)
 	return retData
@@ -306,9 +309,7 @@ func (v *VarLengthRecord) updateLocation(location LocationPair, offset, size Loc
 }
 
 func (v VarLengthRecord) GetField(colData columnData, key string) []byte {
-	// colData := NewColumnData()
 	col, err := colData.column(key)
-
 	if err != nil {
 		return nil
 	}
@@ -316,10 +317,12 @@ func (v VarLengthRecord) GetField(colData columnData, key string) []byte {
 	idx, _ := colData.index(key)
 	if !v.fieldIsNull(NullField_T(idx)) {
 		if num := column.GetTypeSize(col.Type); num < 0 {
-			location := getFieldLocation(colData, v.location, idx)
+			location := getFieldLocation(colData, v.location, key)
+
 			if location == nil {
 				return nil
 			}
+
 			newField := make([]byte, location.size)
 			copy(newField, v.field[location.offset:location.offset+location.size])
 			return newField
@@ -367,16 +370,17 @@ func isNumber(value []byte) bool {
 }
 
 func (v *VarLengthRecord) AddField(colData columnData, key string, value []byte) {
-
 	var bufSize Location_T
 	for _, loc := range v.location {
 		bufSize += loc.size
 	}
+
 	isNum := isNumber(value)
 	if !isNum {
 		locLen := len(v.field) - int(bufSize)
 		v.location[locLen] = LocationPair{Location_T(locLen), Location_T(len(value))}
 	}
+
 	if isNum && !bytes.Contains(value, []byte{Term}) {
 		value = append(value, Term)
 	}

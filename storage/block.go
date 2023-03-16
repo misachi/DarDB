@@ -165,6 +165,22 @@ func (b *Block) AddRecordWithBytes(data []byte) error {
 	return nil
 }
 
+func (b *Block) AddRecord(record *VarLengthRecord) error {
+	length := record.RecordSize()
+
+	if b.size > BLKSIZE || (b.size+length) > BLKSIZE {
+		return fmt.Errorf("AddRecord: Block is full")
+	}
+
+	offset := len(b.records)
+	locationPair := NewLocationPair(Location_T(offset), Location_T(length))
+	b.recLocation = append(b.recLocation, *locationPair)
+	b.records = append(b.records, record.ToByte()...)
+	b.size += length
+	b.isDirty = true
+	return nil
+}
+
 func (b *Block) getRecordSlice(offset, size int) (Record, error) {
 	return NewVarLengthRecordWithHDR(b.records[offset : offset+size])
 }

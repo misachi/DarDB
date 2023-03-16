@@ -180,11 +180,10 @@ func (cd columnData) index(name string) (int, error) {
 	return -1, ErrColumnDoesNotExist
 }
 
-func getFieldLocation(cols columnData, location []LocationPair, idx int) *LocationPair {
-	// cols := NewColumnData()
-	for i, key := range cols.keys {
-		if column.GetTypeSize(key.Type) < 0 {
-			return &location[idx-i]
+func getFieldLocation(cols columnData, location []LocationPair, key string) *LocationPair {
+	for i, cKey := range cols.keys {
+		if key == cKey.Name {
+			return &location[i]
 		}
 	}
 	return nil

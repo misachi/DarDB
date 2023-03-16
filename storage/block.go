@@ -68,23 +68,94 @@ func NewBlock(data []byte, blkID int) (*Block, error) {
 	}, nil
 }
 
+func NewBlockWithHDR(data []byte) (*Block, error) {
+	var recordSep  byte = '\t'
+	if len(data) < 1 {
+		return new(Block), nil
+	}
+	copyData := make([]byte, len(data))
+	copy(copyData, data)
+	idOffset := bytes.IndexByte(copyData, Term)
+	blkID, err := ByteArrayToInt(bytes.NewReader(copyData[:idOffset]))
+
+	if err != nil {
+		return nil, fmt.Errorf("NewBlockWithHDR: reading block ID %v", err)
+	}
+	// szOffset := bytes.IndexByte(copyData, Term)
+	// if szOffset < 0 {
+	// 	szOffset = 0
+	// }
+	
+	copyData = copyData[idOffset+1:]
+	locEnd := bytes.IndexByte(copyData, recordSep)
+	locations, err := setLocation(copyData[:locEnd])
+	if err != nil {
+		return nil, fmt.Errorf("NewBlock: unable to set location data %v", err)
+	}
+
+	copyData = copyData[locEnd+1:]
+	recEnd := bytes.IndexByte(copyData, recordSep)
+	// if locOffset < 0 {
+	// 	locOffset = 0
+	// }
+	records := copyData[:recEnd]
+	
+	copyData = copyData[recEnd+1:]
+	szEnd := bytes.IndexByte(copyData, Term)
+	sz, err := ByteArrayToInt(bytes.NewReader(copyData[:szEnd]))
+	if err != nil {
+		return nil, fmt.Errorf("NewBlock: reading block size: %v", err)
+	}
+
+	return &Block{
+		size:        int(sz),
+		recLocation: *locations,
+		records:     records,
+		mut:         new(sync.RWMutex),
+		blockId:     int(blkID),
+	}, nil
+}
+
 func (b Block) BlockID() int {
 	return b.blockId
 }
 
 func (b *Block) ToByte() []byte {
-	return b.records
+	var recordSep  byte = '\t'
+	retData := intToByte(int(b.blockId))
+	retData = append(retData, Term)
+	locSize := len(b.recLocation)
+
+	for i, location := range b.recLocation {
+		retData = append(retData, intToByte(int(location.offset))...)
+		retData = append(retData, LocationSep)
+		retData = append(retData, intToByte(int(location.size))...)
+
+		if i < (locSize - 1) {
+			retData = append(retData, FieldSep)
+		}
+	}
+	retData = append(retData, recordSep)
+
+	retData = append(retData, b.records...)
+	retData = append(retData, recordSep)
+	retData = append(retData, intToByte(b.size)...)
+	retData = append(retData, Term)
+	return retData
 }
 
-func (b *Block) AddRecord(data []byte) error {
+func (b *Block) AddRecordWithBytes(data []byte) error {
 	record, err := NewVarLengthRecordWithHDR(data)
+
 	if err != nil {
 		return fmt.Errorf("AddRecord: %v", err)
 	}
+
 	length := record.RecordSize()
 	if b.size > BLKSIZE || (b.size+length) > BLKSIZE {
 		return fmt.Errorf("AddRecord: Block is full")
 	}
+
 	offset := len(b.records)
 	locationPair := NewLocationPair(Location_T(offset), Location_T(length))
 	b.recLocation = append(b.recLocation, *locationPair)

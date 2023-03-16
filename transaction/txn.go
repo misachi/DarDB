@@ -108,6 +108,6 @@ func (t *Transaction) unlockAll() {
 	}
 }
 
-func (t *Transaction) commit() error {}
+// func (t *Transaction) commit() error {}
 
-func (t *Transaction) rollback() error {}
+// func (t *Transaction) rollback() error {}

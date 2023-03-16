@@ -70,7 +70,7 @@ func NewVarLengthRecord(cols []column.Column, data [][]byte) (*VarLengthRecord, 
 	mu := NewLock()
 	if len(data) < 1 {
 		return &VarLengthRecord{
-			recordHeader: recordHeader{false, mu, 0, []LocationPair{{0, 0}}},
+			recordHeader: recordHeader{false, 0, mu, []LocationPair{{0, 0}}},
 			field:        []byte{},
 		}, nil
 	}

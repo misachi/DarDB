@@ -59,21 +59,46 @@ func (tbl *Table) AddRecord(cols []column.Column, fieldVals [][]byte) (bool, err
 	for i := 0; i < len(fieldVals); i++ {
 		recSize += len(fieldVals[i])
 	}
+
 	blk := tbl.mgr.GetFree(recSize)
 	if blk == nil {
 		return false, fmt.Errorf("AddRecord: check disk space")
 	}
+
 	record, err := st.NewVarLengthRecord(cols, fieldVals)
 	if err != nil {
 		return false, fmt.Errorf("AddRecord: record error %v", err)
 	}
-	if err := blk.AddRecord(record.ToByte()); err != nil {
+
+	if err := blk.AddRecord(record); err != nil {
 		return false, fmt.Errorf("AddRecord: %v", err)
 	}
+
 	return true, nil
 }
 
-func (tbl *Table) GetRecord() {}
+func (tbl *Table) GetRecord(colName string, colValue []byte) ([]st.Record, error) {
+	var f_block int64 = 0
+	records := make([]st.Record, 0)
+	var tblSz int64 = 1 //tbl.info.NumBlocks
+
+	for {
+		if tblSz < f_block {
+			break
+		}
+		blk, err := tbl.mgr.GetBlock(f_block)
+		if err != nil {
+			return nil, fmt.Errorf("GetRecord: GetBlock: %v", err)
+		}
+		rec, err := blk.FilterRecords(st.NewColumnData_(tbl.info.Column), colName, colValue)
+		if err != nil {
+			return nil, fmt.Errorf("GetRecord: FilterRecords: %v", err)
+		}
+		records = append(records, rec...)
+		f_block += st.BLKSIZE
+	}
+	return records, nil
+}
 
 func NewTableInfo(name string, location string, cols []column.Column, pkey column.Column) *TableInfo {
 	return &TableInfo{

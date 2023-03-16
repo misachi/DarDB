@@ -93,10 +93,11 @@ func (buf *BufferPoolMgr) GetBlock(blockId int64) (*Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("GetBlock: Read error %v", err)
 	}
-	blk, err := NewBlock(blkData, int(BLKSIZE/blockId))
+	blk, err := NewBlockWithHDR(blkData)
 	if err != nil {
 		return nil, fmt.Errorf("GetBlock: new block error %v", err)
 	}
+	buf.block.Push(int64(blk.blockId), blk)
 	return blk, nil
 }
 

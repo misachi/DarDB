@@ -388,34 +388,27 @@ func (v *VarLengthRecord) AddField(colData columnData, key string, value []byte)
 		v.field[:len(v.field)-int(bufSize)],
 		append(value, v.field[len(v.field)-int(bufSize):]...)...,
 	)
-	// fieldIdx := getFieldIndex(key)
-	// colData := NewColumnData()
-	// col, err := colData.column(key)
-
-	// if err != nil {
-	// 	return nil
-	// }
 
 	fieldIdx, _ := colData.index(key)
 	v.nullField = v.nullField | (1 << NullField_T(fieldIdx))
 }
 
 func (v *VarLengthRecord) UpdateField(colData columnData, key string, value []byte) {
-	// colData := NewColumnData()
 	idx, _ := colData.index(key)
 	offset := 0
 	if !isNumber(value) {
-		location := getFieldLocation(colData, v.location, idx)
+		location := getFieldLocation(colData, v.location, key)
 		v.field = append(v.field[:location.offset],
 			append(value, v.field[location.offset+location.size:]...)...)
-		// location.size = Location_T(len(value))
 		v.updateLocation(*location, location.offset, Location_T(len(value)))
 		return
 	}
+
 	if len(value) <= 0 && !v.fieldIsNull(NullField_T(idx)) {
 		// Toggle field if value is empty
 		v.nullField ^= (1 << NullField_T(idx))
 	}
+
 	for i := 0; i < idx; i++ {
 		_idx := bytes.IndexByte(v.field[offset:], FieldSep)
 		if _idx == -1 {
@@ -423,6 +416,7 @@ func (v *VarLengthRecord) UpdateField(colData columnData, key string, value []by
 		}
 		offset += len(v.field[:_idx+1])
 	}
+
 	_idx := bytes.IndexByte(v.field[offset:], FieldSep)
 	if _idx < 0 {
 		i := bytes.IndexByte(v.field[offset:], Term)

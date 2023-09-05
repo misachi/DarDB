@@ -103,11 +103,37 @@ func (t *Transaction) startTransaction(cID, tID txn_t) (*Transaction, error) {
 }
 
 func (t *Transaction) unlockAll() {
-	for _, rec := range t.DataList {
+	for _, rec := range t.dataList {
 		rec.UnLockRecord()
 	}
 }
 
-// func (t *Transaction) commit() error {}
+func (t *Transaction) transactionAbort() {
+	t.state = ABORTED
+	t.rollback()
+}
 
-// func (t *Transaction) rollback() error {}
+func (t *Transaction) commit() error {
+	for _, rec := range t.dataList {
+		// TODO: Write to WAL
+		rec.UnLockRecord()
+	}
+	return nil
+}
+
+func (t *Transaction) rollback() error {
+	t.unlockAll()
+	return nil
+}
+
+func (t *Transaction) TxnReadRecord(rec blk.Record) error {
+	rec.LockRecord(blk.SHARED_LOCK)
+	t.dataList = append(t.dataList, rec)
+	return nil
+}
+
+func (t *Transaction) TxnWriteRecord(rec blk.Record) error {
+	rec.LockRecord(blk.EXCLUSIVE_LOCK)
+	t.dataList = append(t.dataList, rec)
+	return nil
+}

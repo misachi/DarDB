@@ -63,7 +63,7 @@ type Transaction struct {
 	transactionId txn_t
 	commitId      txn_t
 	state         int
-	DataList      []blk.Record
+	dataList      []blk.Record
 }
 
 func NewTransaction() *Transaction {

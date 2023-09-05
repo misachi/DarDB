@@ -46,18 +46,35 @@ func (l *Lock) ReleaseLock() error {
 	return nil
 }
 
-func (l *Lock) acquireSharedLock() error {
+func (l *Lock) incrementCount() {
+	l.eLock.Lock()
 	l.sharedLockCount++
+	l.lockType = SHARED_LOCK
+	defer l.eLock.Unlock()
+}
+
+func (l *Lock) decrementCount() {
+	l.eLock.Lock()
+	l.sharedLockCount--
+	defer l.eLock.Unlock()
+}
+
+func (l *Lock) acquireSharedLock() error {
+	// l.incrementCount()
+	l.eLock.RLock()
+	l.lockType = SHARED_LOCK
 	return nil
 }
 
 func (l *Lock) releaseSharedLock() error {
-	l.sharedLockCount--
+	// l.decrementCount()
+	l.eLock.RUnlock()
 	return nil
 }
 
 func (l *Lock) acquireExclusiveLock() error {
 	l.eLock.Lock()
+	l.lockType = EXCLUSIVE_LOCK
 	return nil
 }
 

@@ -6,14 +6,14 @@ import (
 )
 
 const (
-	SHARED_LOCK = iota
+	SHARED_LOCK uint8 = iota
 	EXCLUSIVE_LOCK
 	NO_LOCK
 )
 
 type Lock struct {
 	sharedLockCount uint
-	lockType        int
+	lockType        uint8
 	eLock           *sync.RWMutex
 }
 

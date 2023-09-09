@@ -21,10 +21,11 @@ func NewLock() *Lock {
 	return &Lock{
 		sharedLockCount: 0,
 		eLock:           &sync.RWMutex{},
+		lockType:        NO_LOCK,
 	}
 }
 
-func (l *Lock) AcquireLock(mode int) error {
+func (l *Lock) AcquireLock(mode uint8) error {
 	if mode == EXCLUSIVE_LOCK {
 		l.acquireExclusiveLock()
 	} else if mode == SHARED_LOCK {

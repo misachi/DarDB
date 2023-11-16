@@ -58,7 +58,7 @@ func TestNewBlock(t *testing.T) {
 		recLocation: []BlockLocationPair{{row.NewLocationPair(0, 20), &st.Lock{}}, {row.NewLocationPair(21, 50), &st.Lock{}}},
 		records:     []byte("0000000000000000000000000000000000000000000000000"),
 	}
-	newBlock, err := NewBlock(data, 1)
+	newBlock, err := NewBlock(data, 1, 0)
 	if err != nil {
 		t.Error(err)
 	}

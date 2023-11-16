@@ -17,6 +17,7 @@ var (
 )
 
 const BLKSIZE = 4096 // Size of block on disk
+type blk_t uint64
 
 type BlockLocationPair struct {
 	*row.LocationPair

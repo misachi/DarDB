@@ -81,7 +81,7 @@ func (t *TransactionManager) Rollback(txn *Transaction) {}
 
 type transactionRecord struct {
 	location row.LocationPair
-	blockID  int
+	blockID  blk_t
 }
 
 type Transaction struct {
@@ -154,6 +154,7 @@ func (t *Transaction) transactionAbort() {
 
 func (t *Transaction) commit() error {
 	// TODO: Write to WAL
+	t.state = COMMITTED
 	if err := t.unlockAll(); err != nil {
 		return fmt.Errorf("commit error: %v", err)
 	}
@@ -161,13 +162,14 @@ func (t *Transaction) commit() error {
 }
 
 func (t *Transaction) rollback() error {
+	t.state = ABORTED
 	if err := t.unlockAll(); err != nil {
 		return fmt.Errorf("rollback error: %v", err)
 	}
 	return nil
 }
 
-func (t *Transaction) TxnReadRecord(blockID int, loc row.LocationPair) error {
+func (t *Transaction) TxnReadRecord(blockID blk_t, loc row.LocationPair) error {
 	t.dataList = append(t.dataList, transactionRecord{blockID: blockID, location: loc})
 	return nil
 }
@@ -179,7 +181,7 @@ func (t *Transaction) TxnReadRecord(blockID int, loc row.LocationPair) error {
 // 	return nil
 // }
 
-func (t *Transaction) TxnWriteRecord(blockID int, loc row.LocationPair) error {
+func (t *Transaction) TxnWriteRecord(blockID blk_t, loc row.LocationPair) error {
 	t.dataList = append(t.dataList, transactionRecord{blockID: blockID, location: loc})
 	return nil
 }

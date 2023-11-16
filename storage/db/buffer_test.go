@@ -23,7 +23,7 @@ func TestNewBufferPoolMgr(t *testing.T) {
 	file := getFile(t)
 
 	poolSize := 3
-	pmgr, err := NewBufferPoolMgr(int64(poolSize), file)
+	pmgr, err := NewBufferPoolMgr(int64(poolSize), file, 0)
 	if err != nil {
 		t.Errorf("error creating buffer: %v", err)
 	}
@@ -36,8 +36,8 @@ func TestNewBufferPoolMgr(t *testing.T) {
 func TestGetBlock(t *testing.T) {
 	file := getFile(t)
 	poolSize := 5
-	blockId := 3
-	pmgr, _ := NewBufferPoolMgr(int64(poolSize), file)
+	var blockId blk_t = 3
+	pmgr, _ := NewBufferPoolMgr(int64(poolSize), file, 0)
 	err := pmgr.Load()
 	if err != nil {
 		t.Errorf("Load error: %v", err)

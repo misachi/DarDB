@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
-	ds "github.com/misachi/DarDB/structure"
 	dsk "github.com/misachi/DarDB/storage"
+	ds "github.com/misachi/DarDB/structure"
 )
 
 type Pool interface {
@@ -18,15 +18,21 @@ type Pool interface {
 
 var bufMgr *BufferPoolMgr
 
+// type BufEntry struct {
+// 	nextBuf *BufEntry
+// }
+
 type BufferPoolMgr struct {
+	poolLength  uint
 	poolSize    int64 // number of blocks
+	tblID       tbl_t
 	diskManager *dsk.DiskMgr
 	block       Pool
 	freeList    Pool
 }
 
 const (
-	ALIGN = BLKSIZE
+	ALIGN      = BLKSIZE
 	ALIGN_MASK = (ALIGN - 1)
 )
 
@@ -46,7 +52,7 @@ func getBufMgr() *BufferPoolMgr {
 	return bufMgr
 }
 
-func NewBufferPoolMgr(psize int64, fName string) (*BufferPoolMgr, error) {
+func NewBufferPoolMgr(psize int64, fName string, tblID tbl_t) (*BufferPoolMgr, error) {
 	if bufMgr != nil {
 		return bufMgr, nil
 	}
@@ -55,11 +61,27 @@ func NewBufferPoolMgr(psize int64, fName string) (*BufferPoolMgr, error) {
 		return nil, fmt.Errorf("NewBufferPoolMgr: Unable to create new manager %v", err)
 	}
 	bufMgr = &BufferPoolMgr{
-		poolSize:    alignBlock(mgr.Size())/BLKSIZE,
+		poolSize:    alignBlock(mgr.Size()) / BLKSIZE,
+		diskManager: mgr,
+		block:       ds.NewList(),
+		freeList:    ds.NewList(),
+		tblID:       tblID,
+	}
+	return bufMgr, nil
+}
+
+func NewInternalBufferPoolMgr(psize int64, fName string) (*BufferPoolMgr, error) {
+	mgr, err := dsk.NewDiskMgr(fName)
+	if err != nil {
+		return nil, fmt.Errorf("BufferPoolMgr: Unable to create new manager %v", err)
+	}
+	bufMgr = &BufferPoolMgr{
+		poolSize:    alignBlock(mgr.Size()) / BLKSIZE,
 		diskManager: mgr,
 		block:       ds.NewList(),
 		freeList:    ds.NewList(),
 	}
+
 	return bufMgr, nil
 }
 
@@ -79,7 +101,7 @@ func (buf *BufferPoolMgr) Load() error {
 		if len(fData) < 1 {
 			break
 		}
-		blk, err := NewBlock(fData[:BLKSIZE], blockID)
+		blk, err := NewBlock(fData[:BLKSIZE], blk_t(blockID), buf.tblID)
 		buf.poolSize += 1
 		if err != nil {
 			return fmt.Errorf("Load: error creating new block %v", err)
@@ -122,7 +144,7 @@ func (buf *BufferPoolMgr) GetFree(sz int) *Block {
 		data := make([]byte, 0)
 		fileSize := buf.diskManager.Size()
 		if buf.NumBlocks() <= 0 {
-			_blk, err := NewBlock(data, int(fileSize))
+			_blk, err := NewBlock(data, blk_t(fileSize), buf.tblID)
 			if err != nil {
 				return nil
 			}

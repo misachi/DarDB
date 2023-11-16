@@ -28,6 +28,15 @@ func NewClientContext(cfg *cfg.Config, db *DB) (*ClientContext, error) {
 	}, nil
 }
 
+func (ctx *ClientContext) Close() {
+	// CleanUp
+	txn := ctx.currentTxn
+	if txn.state == STARTED || txn.state == PENDING {
+		txn.rollback()
+	}
+	ctx.txnMgr.EndTransaction(txn)
+}
+
 func (ctx *ClientContext) CurrentTxn() *Transaction {
 	return ctx.currentTxn
 }

@@ -33,15 +33,16 @@ func NewBlockLocationPair(offset, size st.Location_T) *BlockLocationPair {
 
 type Block struct {
 	isDirty     bool
-	blockId     int
 	pinCount    int
 	size        int // Current size of bloc contents on storage device
+	blockId     blk_t
+	tblId       tbl_t
 	mut         *sync.RWMutex
 	recLocation []BlockLocationPair // Contains list of two items (Record offset, Record size)
 	records     []byte
 }
 
-func NewBlock(data []byte, blkID int) (*Block, error) {
+func NewBlock(data []byte, blkID blk_t, tblId tbl_t) (*Block, error) {
 	if len(data) < 1 {
 		return new(Block), nil
 	}
@@ -75,6 +76,7 @@ func NewBlock(data []byte, blkID int) (*Block, error) {
 		records:     records,
 		mut:         &sync.RWMutex{},
 		blockId:     blkID,
+		tblId:       tblId,
 		// lockField:   make([]uint8, len(*locations)),
 	}, nil
 }
@@ -174,11 +176,11 @@ func NewBlockWithHDR(data []byte) (*Block, error) {
 		recLocation: *locations,
 		records:     records,
 		mut:         new(sync.RWMutex),
-		blockId:     int(blkID),
+		blockId:     blk_t(blkID),
 	}, nil
 }
 
-func (b Block) BlockID() int {
+func (b Block) BlockID() blk_t {
 	return b.blockId
 }
 

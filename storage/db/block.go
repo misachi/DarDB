@@ -256,11 +256,14 @@ func (b *Block) getRecordSlice(offset, size int) (row.Record, error) {
 func (b *Block) Records(ctx *ClientContext) ([]row.Record, error) {
 	filtered := make([]row.Record, 0)
 	for _, location := range b.recLocation {
-		location.lockField.AcquireLock(st.SHARED_LOCK)
 		record, err := b.getRecordSlice(int(location.Offset()), int(location.Size()))
 		if err != nil {
 			return nil, fmt.Errorf("Records: Unable to initialize record %v", err)
 		}
+		location.lockField.AcquireLock(st.SHARED_LOCK)
+		txn := ctx.CurrentTxn()
+		txn.TxnReadRecord(b.blockId, *location.LocationPair)
+
 		filtered = append(filtered, record)
 	}
 	return filtered, nil
@@ -269,8 +272,7 @@ func (b *Block) Records(ctx *ClientContext) ([]row.Record, error) {
 func (b Block) FilterRecords(ctx *ClientContext, colData row.ColumnData, fieldName string, fieldVal []byte) ([]row.Record, error) {
 	filtered := make([]row.Record, 0)
 
-	for i, _ := range b.recLocation {
-		b.recLocation[i].lockField.AcquireLock(st.SHARED_LOCK)
+	for i, location := range b.recLocation {
 		if b.recLocation[i].Offset() >= 0 && b.recLocation[i].Size() > 0 {
 
 			record, err := b.getRecordSlice(int(b.recLocation[i].Offset()), int(b.recLocation[i].Size()))
@@ -279,6 +281,10 @@ func (b Block) FilterRecords(ctx *ClientContext, colData row.ColumnData, fieldNa
 				return nil, fmt.Errorf("FilterRecords: Unable to initialize record %v", err)
 			}
 			if field := record.GetField(colData, fieldName); bytes.Equal(field, fieldVal) {
+				b.recLocation[i].lockField.AcquireLock(st.SHARED_LOCK)
+				txn := ctx.CurrentTxn()
+				txn.TxnReadRecord(b.blockId, *location.LocationPair)
+
 				filtered = append(filtered, record)
 			}
 		}
@@ -289,15 +295,26 @@ func (b Block) FilterRecords(ctx *ClientContext, colData row.ColumnData, fieldNa
 func (b *Block) UpdateFiteredRecords(ctx *ClientContext, colData row.ColumnData, fieldName string, searchVal []byte, newVal []byte) error {
 	// colData := NewColumnData()
 	for _, location := range b.recLocation {
-		location.lockField.AcquireLock(st.EXCLUSIVE_LOCK)
 		record, err := b.getRecordSlice(int(location.Offset()), int(location.Size()))
+		oldRecordBytes := record.(*row.VarLengthRecord).ToByte()
 
 		if err != nil {
 			return fmt.Errorf("UpdateFiteredRecords: Unable to initialize record %v", err)
 		}
 		if field := record.GetField(colData, fieldName); bytes.Equal(field, searchVal) {
+			location.lockField.AcquireLock(st.EXCLUSIVE_LOCK)
+			txn := ctx.CurrentTxn()
+			wal := CurrentWal()
+			if wal == nil {
+				wal = NewWalSegment(ctx.currentTxn.transactionId)
+			}
+			wal.WalLog(NewEntry(txn.transactionId))
+			txn.TxnReadRecord(b.blockId, *location.LocationPair)
+
 			b.size -= record.(*row.VarLengthRecord).RecordSize()
 			record.UpdateField(colData, fieldName, newVal)
+			entry := NewEntry(txn.transactionId)
+			entry.InsertVal(oldRecordBytes, record.(*row.VarLengthRecord).ToByte(), NewETag(ctx.database.dbID, b.tblId, b.blockId))
 			b.size += record.(*row.VarLengthRecord).RecordSize()
 		}
 	}
@@ -308,12 +325,15 @@ func (b *Block) UpdateFiteredRecords(ctx *ClientContext, colData row.ColumnData,
 
 func (b *Block) UpdateRecords(ctx *ClientContext, colData row.ColumnData, fieldName string, fieldVal []byte) error {
 	for _, location := range b.recLocation {
-		location.lockField.AcquireLock(st.EXCLUSIVE_LOCK)
 		record, err := b.getRecordSlice(int(location.Offset()), int(location.Size()))
 
 		if err != nil {
 			return fmt.Errorf("UpdateRecords: Unable to initialize record %v", err)
 		}
+
+		location.lockField.AcquireLock(st.EXCLUSIVE_LOCK)
+		txn := ctx.CurrentTxn()
+		txn.TxnReadRecord(b.blockId, *location.LocationPair)
 
 		b.size -= record.(*row.VarLengthRecord).RecordSize()
 		record.UpdateField(colData, fieldName, fieldVal)

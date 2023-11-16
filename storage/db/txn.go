@@ -46,6 +46,16 @@ func (tM TransactionManager) MaxTxnID() txn_t {
 	return tM.maxTxnID
 }
 
+func (tM *TransactionManager) EndTransaction(transaction *Transaction) {
+	for idx, txn := range tM.ActiveTransactions {
+		if txn.transactionId == transaction.transactionId {
+			tM.ActiveTransactions = append(tM.ActiveTransactions[:idx], tM.ActiveTransactions[idx+1:]...)
+			tM.DeleteTransactions = append(tM.DeleteTransactions, txn)
+			break
+		}
+	}
+}
+
 func (t *TransactionManager) StartTransaction() (*Transaction, error) {
 	newTxn := NewTransaction()
 	newTxn.commitId++

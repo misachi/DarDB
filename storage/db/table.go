@@ -8,9 +8,12 @@ import (
 	"github.com/misachi/DarDB/column"
 	"github.com/misachi/DarDB/config"
 	st "github.com/misachi/DarDB/storage"
+
 	// blk "github.com/misachi/DarDB/storage/database/block"
 	row "github.com/misachi/DarDB/storage/db/row"
 )
+
+type tbl_t uint64
 
 // const BLKSIZE = 4096 // Size of block on disk
 
@@ -26,20 +29,23 @@ type TableInfo struct {
 }
 
 type Table struct {
-	mgr  *BufferPoolMgr
-	info *TableInfo
+	tblID       tbl_t
+	internalBuf *BufferPoolMgr
+	info        *TableInfo
 }
 
-func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, error) {
-	tblPath := path.Join(cfg.DataPath(), dbName, tblInfo.Name, fmt.Sprintf("%s.data", tblInfo.Name))
-	m, err := NewBufferPoolMgr(0, tblPath)
+func NewTable(dbName db_t, tblInfo *TableInfo, cfg *config.Config) (*Table, error) {
+	tblPath := path.Join(cfg.DataPath(), fmt.Sprintf("%d", dbName), tblInfo.Name, fmt.Sprintf("%s.data", tblInfo.Name))
+	tblID := dbName & 0xffffffff
+	tblID += 1
+	m, err := NewBufferPoolMgr(0, tblPath, tbl_t(tblID))
 	if err != nil {
 		return nil, fmt.Errorf("NewTable: unable to create a new manager\n %v", err)
 	}
 
 	return &Table{
-		mgr:  m,
-		info: tblInfo,
+		internalBuf: m,
+		info:        tblInfo,
 	}, nil
 }
 
@@ -48,7 +54,7 @@ func (tbl *Table) GetInfo() *TableInfo {
 }
 
 func (tbl *Table) Flush() {
-	tbl.mgr.FlushBlock(0)
+	tbl.internalBuf.FlushBlock(0)
 	// var i int64 = 0
 	// for i < tbl.mgr.NumBlocks() {
 	// 	tbl.mgr.FlushBlock(int(i))
@@ -62,7 +68,7 @@ func (tbl *Table) AddRecord(cols []column.Column, fieldVals [][]byte) (bool, err
 		recSize += len(fieldVals[i])
 	}
 
-	blk := tbl.mgr.GetFree(recSize)
+	blk := tbl.internalBuf.GetFree(recSize)
 	if blk == nil {
 		return false, fmt.Errorf("AddRecord: check disk space")
 	}
@@ -88,7 +94,7 @@ func (tbl *Table) GetRecord(ctx *ClientContext, colName string, colValue []byte)
 		if tblSz < f_block {
 			break
 		}
-		blk, err := tbl.mgr.GetBlock(f_block)
+		blk, err := tbl.internalBuf.GetBlock(f_block)
 		if err != nil {
 			return nil, fmt.Errorf("GetRecord: GetBlock: %v", err)
 		}

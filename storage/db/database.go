@@ -11,7 +11,10 @@ import (
 	row "github.com/misachi/DarDB/storage/db/row"
 )
 
+type db_t uint64
+
 type DB struct {
+	dbID   db_t
 	name   string
 	table  map[string]*Table
 	config *cfg.Config
@@ -72,7 +75,7 @@ func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE,
 
 	tblInfo := NewTableInfo(tblName, infoFile.Name(), schema, pkey)
 
-	tb, err := NewTable(db.name, tblInfo, db.config)
+	tb, err := NewTable(db.dbID, tblInfo, db.config)
 	if err != nil {
 		return nil, fmt.Errorf("CreateTable: NewTable error %v", err)
 	}

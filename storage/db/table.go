@@ -134,7 +134,8 @@ func (tbl *Table) GetRecord(ctx *ClientContext, colName string, colValue []byte)
 		if tblSz < f_block {
 			break
 		}
-		blk, err := tbl.internalBuf.GetBlock(f_block)
+		bufMgr := GetBufMgr()
+		blk, err := bufMgr.GetBlock(tbl.info.Location, tbl.tblID, st.Blk_t(f_block))
 		if err != nil {
 			return nil, fmt.Errorf("GetRecord: GetBlock: %v", err)
 		}
@@ -150,28 +151,28 @@ func (tbl *Table) GetRecord(ctx *ClientContext, colName string, colValue []byte)
 	return records, nil
 }
 
-func NewTableInfo(name string, location string, cols []column.Column, pkey column.Column) *TableInfo {
+func NewTableInfo(name string, cols []column.Column, pkey column.Column) *TableInfo {
 	return &TableInfo{
 		Column:   cols,
 		Name:     name,
-		Location: location,
+		// Location: location,
 		Pkey:     pkey,
 	}
 }
 
-func DSerialize(td *TableInfo) error {
-	dsk, err := st.NewDiskMgr(td.Path)
-	if err != nil {
-		return fmt.Errorf("DSerialize:  st.NewDiskMgr %v", err)
-	}
-	data := make([]byte, dsk.Size())
-	_, err = dsk.Read(data)
-	if err != nil {
-		return fmt.Errorf("DSerialize: read error %v", err)
-	}
+// func DSerialize(td *TableInfo) error {
+// 	dsk, err := st.NewDiskMgr(td.Path)
+// 	if err != nil {
+// 		return fmt.Errorf("DSerialize:  st.NewDiskMgr %v", err)
+// 	}
+// 	data := make([]byte, dsk.Size())
+// 	_, err = dsk.Read(data)
+// 	if err != nil {
+// 		return fmt.Errorf("DSerialize: read error %v", err)
+// 	}
 
-	if err = json.Unmarshal(data, td); err != nil {
-		return fmt.Errorf("DSerialize table metadata: Unmarshal error %v", err)
-	}
-	return nil
-}
+// 	if err = json.Unmarshal(data, td); err != nil {
+// 		return fmt.Errorf("DSerialize table metadata: Unmarshal error %v", err)
+// 	}
+// 	return nil
+// }

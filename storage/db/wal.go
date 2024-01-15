@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"unsafe"
+	st "github.com/misachi/DarDB/storage"
 )
 
 type WALSTATE_t uint8
@@ -18,24 +19,24 @@ const (
 var CurrentWalSegment *WalSegment
 
 type ETag struct {
-	dbID    db_t
-	tblID   tbl_t
-	blockID blk_t
+	dbID    st.DB_t
+	tblID   st.Tbl_t
+	blockID st.Blk_t
 }
 
-func NewETag(dbID db_t, tblID tbl_t, blkID blk_t) *ETag {
+func NewETag(dbID st.DB_t, tblID st.Tbl_t, blkID st.Blk_t) *ETag {
 	return &ETag{dbID, tblID, blkID}
 }
 
 type Entry struct {
 	state  WALSTATE_t
-	txnID  txn_t
+	txnID  st.Txn_t
 	tag    *ETag
 	oldVal []byte
 	newVal []byte
 }
 
-func NewEntry(txnID txn_t) *Entry {
+func NewEntry(txnID st.Txn_t) *Entry {
 	return &Entry{
 		state:  WAL_START,
 		txnID:  txnID,
@@ -61,7 +62,7 @@ type WalSegment struct {
 	EntryBuf []*Entry
 }
 
-func NewWalSegment(txnID txn_t) *WalSegment {
+func NewWalSegment(txnID st.Txn_t) *WalSegment {
 	var currentWalNum = txnID & 0xffffffff
 	currentWalNum += 1
 	walSeg := &WalSegment{

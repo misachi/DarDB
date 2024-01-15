@@ -415,11 +415,12 @@ func (v *VarLengthRecord) AddField(colData ColumnData, key string, value []byte)
 func (v *VarLengthRecord) UpdateField(colData ColumnData, key string, value []byte) {
 	idx, _ := colData.index(key)
 	offset := 0
+
+	location := getFieldLocation(colData, v.location, key)
 	if !isNumber(value) {
-		location := getFieldLocation(colData, v.location, key)
 		v.field = append(v.field[:location.offset],
 			append(value, v.field[location.offset+location.size:]...)...)
-		v.updateLocation(*location, location.offset, st.Location_T(len(value)))
+		v.updateLocation(idx, *location, location.offset, st.Location_T(len(value)))
 		return
 	}
 
@@ -443,6 +444,7 @@ func (v *VarLengthRecord) UpdateField(colData ColumnData, key string, value []by
 	} else {
 		v.field = append(v.field[:offset], append(value, v.field[offset+_idx:]...)...)
 	}
+	v.updateLocation(idx, *location, location.offset, st.Location_T(len(value)))
 }
 
 // TODO: Update FixedLength Record methods

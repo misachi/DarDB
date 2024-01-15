@@ -2,17 +2,30 @@ package db
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
+	"strconv"
 	"sync"
+	"sync/atomic"
+	"unsafe"
+
+	col "github.com/misachi/DarDB/column"
+	"github.com/misachi/DarDB/config"
+	st "github.com/misachi/DarDB/storage"
+	row "github.com/misachi/DarDB/storage/db/row"
 )
 
 var _Catalog *Catalog
-var catMut *sync.RWMutex
 
 const CATALOG_PATH = "/tmp/.meta/catalog"
 
 type Catalog struct {
-	db map[string]*DB
+	maxTblID    atomic.Uint64
+	maxDbID     atomic.Uint64
+	maxTxnID    atomic.Uint64
+	maxCommitID atomic.Uint64
+	db          map[string]*DB
+	mut         *sync.Mutex
 }
 
 func load(filePath string, catalog *Catalog) error {

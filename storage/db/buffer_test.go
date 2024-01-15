@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -8,41 +9,40 @@ import (
 	st "github.com/misachi/DarDB/storage"
 )
 
-func getFile(t *testing.T) string {
+func getFile(t *testing.T, tblID st.Tbl_t) string {
 	dir := t.TempDir()
-	var filePath = path.Join(dir, "FooTable")
+	var filePath = path.Join(dir, fmt.Sprintf("%d", tblID))
 	file, err := os.OpenFile(filePath, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		t.Errorf("Open error: %v", err)
 	}
 	file.Write(st.SourceData)
+	file.Close()
 	return file.Name()
 }
 
 func TestNewBufferPoolMgr(t *testing.T) {
-	file := getFile(t)
-
-	poolSize := 3
-	pmgr, err := NewBufferPoolMgr(int64(poolSize), file, 0)
+	poolSize := 0
+	pmgr, err := NewBufferPoolMgr()
 	if err != nil {
 		t.Errorf("error creating buffer: %v", err)
 	}
 
-	if pmgr.poolSize != int64(poolSize) {
-		t.Errorf("Expected pool size to be %d but got %d", poolSize, pmgr.poolSize)
+	if pmgr.blkCount != int64(poolSize) {
+		t.Errorf("Expected pool size to be %d but got %d", poolSize, pmgr.blkCount)
 	}
 }
 
 func TestGetBlock(t *testing.T) {
-	file := getFile(t)
-	poolSize := 5
-	var blockId blk_t = 3
-	pmgr, _ := NewBufferPoolMgr(int64(poolSize), file, 0)
-	err := pmgr.Load()
+	var blockId st.Blk_t = 3
+	var tblId st.Tbl_t = 4
+	f := getFile(t, tblId)
+	pmgr, _ := NewBufferPoolMgr()
+	err := pmgr.Load(tblId, f)
 	if err != nil {
 		t.Errorf("Load error: %v", err)
 	}
-	blk, err := pmgr.GetBlock(int64(blockId))
+	blk, err := pmgr.GetBlock(f, tblId, blockId)
 	if err != nil {
 		t.Errorf("GetBlock error: %v", err)
 	}

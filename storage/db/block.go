@@ -269,7 +269,7 @@ func (b *Block) Records(ctx *ClientContext) ([]row.Record, error) {
 		}
 		location.lockField.AcquireLock(st.SHARED_LOCK)
 		txn := ctx.CurrentTxn()
-		txn.TxnReadRecord(b.blockId, *location.LocationPair)
+		txn.TxnReadRecord(b.tblId, b.blockId, *location.LocationPair)
 
 		filtered = append(filtered, record)
 	}
@@ -290,7 +290,7 @@ func (b Block) FilterRecords(ctx *ClientContext, colData row.ColumnData, fieldNa
 			if field := record.GetField(colData, fieldName); bytes.Equal(field, fieldVal) {
 				b.recLocation[i].lockField.AcquireLock(st.SHARED_LOCK)
 				txn := ctx.CurrentTxn()
-				txn.TxnReadRecord(b.blockId, *location.LocationPair)
+				txn.TxnReadRecord(b.tblId, b.blockId, *location.LocationPair)
 
 				filtered = append(filtered, record)
 			}
@@ -315,8 +315,8 @@ func (b *Block) UpdateFiteredRecords(ctx *ClientContext, colData row.ColumnData,
 			if wal == nil {
 				wal = NewWalSegment(ctx.currentTxn.transactionId)
 			}
-			wal.WalLog(NewEntry(txn.transactionId))
-			txn.TxnReadRecord(b.blockId, *location.LocationPair)
+			wal.WalLog(ctx, NewEntry(txn.transactionId))
+			txn.TxnReadRecord(b.tblId, b.blockId, *location.LocationPair)
 
 			b.size -= record.(*row.VarLengthRecord).RecordSize()
 			record.UpdateField(colData, fieldName, newVal)
@@ -340,7 +340,7 @@ func (b *Block) UpdateRecords(ctx *ClientContext, colData row.ColumnData, fieldN
 
 		location.lockField.AcquireLock(st.EXCLUSIVE_LOCK)
 		txn := ctx.CurrentTxn()
-		txn.TxnReadRecord(b.blockId, *location.LocationPair)
+		txn.TxnReadRecord(b.tblId, b.blockId, *location.LocationPair)
 
 		b.size -= record.(*row.VarLengthRecord).RecordSize()
 		record.UpdateField(colData, fieldName, fieldVal)

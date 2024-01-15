@@ -187,6 +187,10 @@ func intToByte(i int) []byte {
 	return []byte(strconv.Itoa(int(i)))
 }
 
+func (b *Block) Size() int {
+	return b.size
+}
+
 func (b *Block) ToByte() []byte {
 	var recordSep byte = '\t'
 	retData := intToByte(int(b.blockId))
@@ -246,6 +250,10 @@ func (b *Block) AddRecord(record *row.VarLengthRecord) error {
 	b.size += length
 	b.isDirty = true
 	return nil
+}
+
+func (b *Block) ResetIsDirtyFlag() {
+	b.isDirty = false
 }
 
 func (b *Block) getRecordSlice(offset, size int) (row.Record, error) {

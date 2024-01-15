@@ -100,12 +100,12 @@ func NewVarLengthRecord(cols []column.Column, data [][]byte) (*VarLengthRecord, 
 		}
 
 		var offset st.Location_T = 0
-		if key.Type == String {
-			if len(location) < 1 {
+
+		if key.Type == column.STRING {
+			if i > 0 && cols[i-1].Type != column.STRING {
 				field = append(field, '\n')
-			} else {
-				offset = location[len(location)-1].offset + location[len(location)-1].size + 1
 			}
+			offset = location[len(location)-1].offset + location[len(location)-1].size + 1
 		} else {
 			if i > 0 {
 				field = append(field, ':')

@@ -302,19 +302,29 @@ func (v VarLengthRecord) Location(offset st.Location_T) *LocationPair {
 	return nil
 }
 
-func (v *VarLengthRecord) updateLocation(location LocationPair, offset, size st.Location_T) {
-	for i, loc := range v.location {
-		if loc.offset == location.offset {
-			v.location[i].size = size
+func (v *VarLengthRecord) updateLocation(locIdx int, location LocationPair, offset, size st.Location_T) {
+	if size != location.size {
+		v.location[locIdx].size = size
 
-			// Next location offset and size have changed
-			for j := 1; j < len(v.location[i:]); j++ {
-				v.location[i+j].offset = v.location[i+j-1].offset + v.location[i+j-1].size
+		if locIdx >= 1 {
+			for ; locIdx < len(v.location); locIdx++ {
+
+				v.location[locIdx].offset = v.location[locIdx-1].offset + v.location[locIdx-1].size
+				prevLoc := v.location[locIdx-1].offset + v.location[locIdx-1].size
+				if locIdx == 2 {
+					fmt.Println(prevLoc+1)
+					fmt.Printf("Fields: %q\n", v.field)
+					fmt.Printf("Byte: %q\n", v.field[10])
+					fmt.Printf("%v\n", (v.field[prevLoc+1] == Term || v.field[prevLoc+1] == FieldSep) || (v.location[locIdx-1].offset == 0))
+				}
+
+				if (v.field[prevLoc] == Term || v.field[prevLoc] == FieldSep) || (v.location[locIdx-1].offset == 0) {
+					v.location[locIdx].offset = v.location[locIdx-1].offset + v.location[locIdx-1].size + 1
+				}
+
 			}
-			break
 		}
 	}
-
 }
 
 func (v VarLengthRecord) GetField(colData ColumnData, key string) []byte {

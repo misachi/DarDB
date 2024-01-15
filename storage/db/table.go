@@ -1,8 +1,8 @@
 package db
 
 import (
-	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 
 	"github.com/misachi/DarDB/column"
@@ -12,8 +12,6 @@ import (
 	// blk "github.com/misachi/DarDB/storage/database/block"
 	row "github.com/misachi/DarDB/storage/db/row"
 )
-
-type tbl_t uint64
 
 // const BLKSIZE = 4096 // Size of block on disk
 
@@ -29,23 +27,63 @@ type TableInfo struct {
 }
 
 type Table struct {
-	tblID       tbl_t
-	internalBuf *BufferPoolMgr
-	info        *TableInfo
+	tblID st.Tbl_t
+	// internalBuf *BufferPoolMgr
+	info *TableInfo
 }
 
-func NewTable(dbName db_t, tblInfo *TableInfo, cfg *config.Config) (*Table, error) {
-	tblPath := path.Join(cfg.DataPath(), fmt.Sprintf("%d", dbName), tblInfo.Name, fmt.Sprintf("%s.data", tblInfo.Name))
-	tblID := dbName & 0xffffffff
-	tblID += 1
-	m, err := NewBufferPoolMgr(0, tblPath, tbl_t(tblID))
-	if err != nil {
-		return nil, fmt.Errorf("NewTable: unable to create a new manager\n %v", err)
+func openRWCreate(file string) (*os.File, error) {
+	return os.OpenFile(file, os.O_CREATE|os.O_RDWR, 0750)
+}
+
+func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, error) {
+	tblPath := path.Join(cfg.DataPath(), dbName, tblInfo.Name, fmt.Sprintf("%s.data", tblInfo.Name))
+	// tblID := dbName // & 0xffffffff
+	// tblID += 1
+	// m, err := NewBufferPoolMgr(0, tblPath, st.Tbl_t(tblID))
+	// if err != nil {
+	// 	return nil, fmt.Errorf("NewTable: unable to create a new manager\n %v", err)
+	// }
+	var tblID st.Tbl_t
+	catalog := _Catalog
+	if catalog != nil {
+		if _, ok := catalog.db["catalog"]; ok {
+			newTblID := catalog.maxTblID.Add(1)
+			catalog.SetMaxTblId(st.Tbl_t(newTblID))
+			tblID = catalog.MaxTblId()
+		}
 	}
 
+	tblInfo.Location = tblPath
+
+	tID := fmt.Sprintf("%d", tblID)
+	infoDir := path.Join(cfg.DataPath(), dbName)
+	dataDir := path.Join(cfg.DataPath(), dbName, ".meta")
+	err := os.MkdirAll(infoDir, 0750)
+	if err != nil {
+		return nil, fmt.Errorf("CreateTable: MkdirAll infoDir error %v", err)
+	}
+	err = os.MkdirAll(dataDir, 0750)
+	if err != nil {
+		return nil, fmt.Errorf("CreateTable: MkdirAll dataDir error %v", err)
+	}
+
+	dataFile, err := openRWCreate(path.Join(dataDir, fmt.Sprintf("%s.meta", tID)))
+	if err != nil {
+		return nil, fmt.Errorf("CreateTable: data file error %v", err)
+	}
+	defer dataFile.Close()
+
+	infoFile, err := openRWCreate(path.Join(infoDir, fmt.Sprintf("%s.data", tID)))
+	if err != nil {
+		return nil, fmt.Errorf("CreateTable: meta file error %v", err)
+	}
+	defer infoFile.Close()
+
 	return &Table{
-		internalBuf: m,
-		info:        tblInfo,
+		// internalBuf: m,
+		info:  tblInfo,
+		tblID: tblID,
 	}, nil
 }
 
@@ -54,7 +92,8 @@ func (tbl *Table) GetInfo() *TableInfo {
 }
 
 func (tbl *Table) Flush() {
-	tbl.internalBuf.FlushBlock(0)
+	bufMgr := GetBufMgr()
+	bufMgr.Flush(tbl.info.Location, tbl.tblID)
 	// var i int64 = 0
 	// for i < tbl.mgr.NumBlocks() {
 	// 	tbl.mgr.FlushBlock(int(i))
@@ -62,13 +101,14 @@ func (tbl *Table) Flush() {
 	// }
 }
 
-func (tbl *Table) AddRecord(cols []column.Column, fieldVals [][]byte) (bool, error) {
+func (tbl *Table) AddRecord(ctx *ClientContext, cols []column.Column, fieldVals [][]byte) (bool, error) {
 	recSize := 0
 	for i := 0; i < len(fieldVals); i++ {
 		recSize += len(fieldVals[i])
 	}
 
-	blk := tbl.internalBuf.GetFree(recSize)
+	bufMgr := GetBufMgr()
+	blk := bufMgr.GetFree(tbl.info.Location, tbl.tblID, recSize)
 	if blk == nil {
 		return false, fmt.Errorf("AddRecord: check disk space")
 	}

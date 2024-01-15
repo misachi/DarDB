@@ -10,8 +10,8 @@ type DiskMgr struct {
 	size int64
 }
 
-func NewDiskMgr(fName string) (*DiskMgr, error) {
-	f, err := os.OpenFile(fName, os.O_RDWR, 0750)
+func NewDiskMgr(loc string) (*DiskMgr, error) {
+	f, err := os.OpenFile(loc, os.O_RDWR, 0750)
 	if err != nil {
 		return nil, fmt.Errorf("NewDiskMgr: os.OpenFile error %v", err)
 	}

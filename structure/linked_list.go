@@ -17,6 +17,10 @@ func (v *Value) Next() *Value {
 	return nil
 }
 
+func (v Value) Key() interface{} {
+	return v.key
+}
+
 type List struct {
 	size int
 	head *Value

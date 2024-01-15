@@ -17,7 +17,6 @@ var (
 )
 
 const BLKSIZE = 4096 // Size of block on disk
-type blk_t uint64
 
 type BlockLocationPair struct {
 	*row.LocationPair
@@ -35,14 +34,14 @@ type Block struct {
 	isDirty     bool
 	pinCount    int
 	size        int // Current size of bloc contents on storage device
-	blockId     blk_t
-	tblId       tbl_t
+	blockId     st.Blk_t
+	tblId       st.Tbl_t
 	mut         *sync.RWMutex
 	recLocation []BlockLocationPair // Contains list of two items (Record offset, Record size)
 	records     []byte
 }
 
-func NewBlock(data []byte, blkID blk_t, tblId tbl_t) (*Block, error) {
+func NewBlock(data []byte, blkID st.Blk_t, tblId st.Tbl_t) (*Block, error) {
 	if len(data) < 1 {
 		return new(Block), nil
 	}
@@ -176,11 +175,11 @@ func NewBlockWithHDR(data []byte) (*Block, error) {
 		recLocation: *locations,
 		records:     records,
 		mut:         new(sync.RWMutex),
-		blockId:     blk_t(blkID),
+		blockId:     st.Blk_t(blkID),
 	}, nil
 }
 
-func (b Block) BlockID() blk_t {
+func (b Block) BlockID() st.Blk_t {
 	return b.blockId
 }
 

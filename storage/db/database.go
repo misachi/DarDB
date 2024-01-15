@@ -63,40 +63,27 @@ func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE,
 		}
 	}
 	schema = append(schema, varLenKeys...)
-	infoDir := path.Join(db.config.DataPath(), db.name, tblName)
-	dataDir := path.Join(db.config.DataPath(), db.name, tblName, ".meta")
-	err := os.MkdirAll(infoDir, 0750)
-	if err != nil {
-		return nil, fmt.Errorf("CreateTable: MkdirAll infoDir error %v", err)
-	}
-	err = os.MkdirAll(dataDir, 0750)
-	if err != nil {
-		return nil, fmt.Errorf("CreateTable: MkdirAll dataDir error %v", err)
-	}
 
-	dataFile, err := openRWCreate(path.Join(dataDir, fmt.Sprintf("%s.meta", tblName)))
-	if err != nil {
-		return nil, fmt.Errorf("CreateTable: data file error %v", err)
-	}
-	defer dataFile.Close()
+	tblInfo := NewTableInfo(tblName, schema, pkey)
 
-	infoFile, err := openRWCreate(path.Join(infoDir, fmt.Sprintf("%s.data", tblName)))
-	if err != nil {
-		return nil, fmt.Errorf("CreateTable: meta file error %v", err)
-	}
-	defer infoFile.Close()
-
-	tblInfo := NewTableInfo(tblName, infoFile.Name(), schema, pkey)
-
-	tb, err := NewTable(db.dbID, tblInfo, db.config)
+	tb, err := NewTable(db.name, tblInfo, db.config)
 	if err != nil {
 		return nil, fmt.Errorf("CreateTable: NewTable error %v", err)
 	}
+	db.mut.Lock()
 	db.table[tblName] = tb
+	db.mut.Unlock()
 	return tb, nil
 }
 
-func (db *DB) AddRecord(tbl *Table, data map[string][]byte) error {
+func (db *DB) GetTable(tblName string) *Table {
+	if table, ok := db.table[tblName]; ok {
+		return table
+	}
+	return nil
+}
+
+func (db *DB) AddRecord(ctx *ClientContext, tbl *Table, data map[string][]byte) error {
 	fields := make([]column.Column, 0)
 	fieldVals := make([][]byte, 0)
 	columns := tbl.GetInfo().Column

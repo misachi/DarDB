@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"sync"
 
+	st "github.com/misachi/DarDB/storage"
 	row "github.com/misachi/DarDB/storage/db/row"
 )
 
-type txn_t uint64
+// type txn_t st.Txn_t
 
 var TxnMgr *TransactionManager
 
@@ -19,8 +20,8 @@ const (
 )
 
 type TransactionManager struct {
-	maxCommitId        txn_t
-	maxTxnID           txn_t
+	maxCommitId        st.Txn_t
+	maxTxnID           st.Txn_t
 	txnMgrMtx          *sync.Mutex
 	ActiveTransactions []*Transaction
 	DeleteTransactions []*Transaction
@@ -28,21 +29,37 @@ type TransactionManager struct {
 
 func NewTxnManager() *TransactionManager {
 	if TxnMgr == nil {
+		var txnID st.Txn_t
+		var commitID st.Txn_t
+		catalog := _Catalog
+		if catalog != nil {
+			if _, ok := catalog.db["catalog"]; ok {
+				newTxnID := catalog.maxTblID.Add(1)
+				catalog.SetMaxTxnId(st.Txn_t(newTxnID))
+				txnID = catalog.MaxTxnId()
+
+				newCommitID := catalog.maxCommitID.Add(1)
+				catalog.SetMaxCommitId(st.Txn_t(newCommitID))
+				commitID = catalog.MaxCommitId()
+			}
+		}
 		TxnMgr = &TransactionManager{
 			ActiveTransactions: make([]*Transaction, 0),
 			DeleteTransactions: make([]*Transaction, 0),
 			txnMgrMtx:          &sync.Mutex{},
+			maxTxnID:           txnID,
+			maxCommitId:        commitID,
 		}
 		return TxnMgr
 	}
 	return TxnMgr
 }
 
-func (tM TransactionManager) MaxCommitID() txn_t {
+func (tM TransactionManager) MaxCommitID() st.Txn_t {
 	return tM.maxCommitId
 }
 
-func (tM TransactionManager) MaxTxnID() txn_t {
+func (tM TransactionManager) MaxTxnID() st.Txn_t {
 	return tM.maxTxnID
 }
 
@@ -56,14 +73,17 @@ func (tM *TransactionManager) EndTransaction(transaction *Transaction) {
 	}
 }
 
-func (t *TransactionManager) StartTransaction() (*Transaction, error) {
-	newTxn := NewTransaction()
-	newTxn.commitId++
-	if newTxn.commitId <= 0 {
-		newTxn.transactionId++
-	} else {
-		newTxn.transactionId = newTxn.commitId
-	}
+func (t *TransactionManager) StartTransaction(ctx * ClientContext) (*Transaction, error) {
+	newTxn := NewTransaction(ctx)
+	// newTxn.commitId++
+	// if newTxn.commitId <= 0 {
+	// 	newTxn.transactionId = t.maxTxnID
+	// } else {
+	// 	newTxn.transactionId = newTxn.commitId
+	// }
+
+	newTxn.transactionId = t.maxTxnID
+	newTxn.commitId = t.maxCommitId
 
 	txn, err := newTxn.startTransaction(newTxn.commitId, newTxn.transactionId)
 	if err != nil {
@@ -81,26 +101,28 @@ func (t *TransactionManager) Rollback(txn *Transaction) {}
 
 type transactionRecord struct {
 	location row.LocationPair
-	blockID  blk_t
+	blockID  st.Blk_t
+	tblID    st.Tbl_t
 }
 
 type Transaction struct {
 	autocommit    bool
-	transactionId txn_t
-	commitId      txn_t
+	transactionId st.Txn_t
+	commitId      st.Txn_t
 	state         int
+	ctx           *ClientContext
 	dataList      []transactionRecord
 }
 
-func NewTransaction() *Transaction {
-	return &Transaction{state: PENDING, autocommit: false}
+func NewTransaction(ctx *ClientContext) *Transaction {
+	return &Transaction{state: PENDING, autocommit: false, ctx: ctx}
 }
 
-func (t Transaction) CommitID() txn_t {
+func (t Transaction) CommitID() st.Txn_t {
 	return t.commitId
 }
 
-func (t Transaction) TransactionID() txn_t {
+func (t Transaction) TransactionID() st.Txn_t {
 	return t.transactionId
 }
 
@@ -112,7 +134,7 @@ func (t *Transaction) SetAutocommit(autoCommit bool) {
 	t.autocommit = autoCommit
 }
 
-func (t *Transaction) startTransaction(cID, tID txn_t) (*Transaction, error) {
+func (t *Transaction) startTransaction(cID, tID st.Txn_t) (*Transaction, error) {
 	switch t.state {
 	case PENDING:
 		return nil, fmt.Errorf("startTransaction: Transaction already started")
@@ -129,12 +151,14 @@ func (t *Transaction) startTransaction(cID, tID txn_t) (*Transaction, error) {
 }
 
 func (t *Transaction) unlockAll() error {
-	_bufMgr := getBufMgr()
+	_bufMgr := GetBufMgr()
 	if bufMgr == nil {
 		return fmt.Errorf("unlockAll: Unable to get buffer manager")
 	}
+
 	for _, lockedRecord := range t.dataList {
-		blk, err := _bufMgr.GetBlock(int64(lockedRecord.blockID))
+		path := fmt.Sprintf("%s/%s/%d", t.ctx.config.DataPath(), t.ctx.database.name, lockedRecord.tblID)
+		blk, err := _bufMgr.GetBlock(path, lockedRecord.tblID, lockedRecord.blockID)
 		if err != nil {
 			return fmt.Errorf("unlockAll: GetBlock error: %v", err)
 		}
@@ -169,8 +193,8 @@ func (t *Transaction) rollback() error {
 	return nil
 }
 
-func (t *Transaction) TxnReadRecord(blockID blk_t, loc row.LocationPair) error {
-	t.dataList = append(t.dataList, transactionRecord{blockID: blockID, location: loc})
+func (t *Transaction) TxnReadRecord(tblID st.Tbl_t, blockID st.Blk_t, loc row.LocationPair) error {
+	t.dataList = append(t.dataList, transactionRecord{blockID: blockID, location: loc, tblID: tblID})
 	return nil
 }
 
@@ -181,7 +205,7 @@ func (t *Transaction) TxnReadRecord(blockID blk_t, loc row.LocationPair) error {
 // 	return nil
 // }
 
-func (t *Transaction) TxnWriteRecord(blockID blk_t, loc row.LocationPair) error {
-	t.dataList = append(t.dataList, transactionRecord{blockID: blockID, location: loc})
+func (t *Transaction) TxnWriteRecord(tblID st.Tbl_t, blockID st.Blk_t, loc row.LocationPair) error {
+	t.dataList = append(t.dataList, transactionRecord{blockID: blockID, location: loc, tblID: tblID})
 	return nil
 }

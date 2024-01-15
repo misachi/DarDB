@@ -186,7 +186,8 @@ func TestGetField(t *testing.T) {
 		givenField string
 		wantValue  []byte
 	}
-	data := []byte("127\n14,2:16,3:19,2\n12:34:1467:56\nitwasyou")
+	// data := []byte("127\n14,2:17,2:20,4:25,2:28,2:31,3:35,3\n12:34:1467:56\nitwasyou")
+	data := []byte("127\n0,2:3,2:6,4:11,2:14,2:16,3:21,3\n12:34:1467:56\nitwasyou")
 	values := []valType{
 		{
 			given:      data,
@@ -249,58 +250,60 @@ func TestUpdateField(t *testing.T) {
 	}
 	values := []valType{
 		{
-			givenData:     []byte("127\n14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
+			givenData:     []byte("127\n0,2:3,2:6,4:11,2:14,2:16,3:21,3\n12:34:1467:56\nitwasyou"),
 			givenField:    "field3",
 			givenValue:    []byte("146"),
 			wantValue:     []byte("146"),
 			wantData:      []byte("12:34:146:56\nitwasyou"),
 			wantNullField: 127,
 			wantLocation: []LocationPair{
-				{14, 2}, {16, 3}, {19, 3},
+				{0, 2}, {3, 2}, {6, 3}, {10, 2}, {13, 2}, {15, 3}, {18, 3},
 			},
 		},
 		{
-			givenData:     []byte("127\n14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
+			givenData:     []byte("127\n0,2:3,2:6,4:11,2:14,2:16,3:21,3\n12:34:1467:56\nitwasyou"),
 			givenField:    "field4",
 			givenValue:    []byte(""),
 			wantValue:     []byte(""),
 			wantData:      []byte("12:34:1467:\nitwasyou"),
 			wantNullField: 119,
 			wantLocation: []LocationPair{
-				{14, 2}, {16, 3}, {19, 3},
+				{0, 2}, {3, 2}, {6, 4}, {11, 0}, {12, 2}, {14, 3}, {17, 3},
 			},
 		},
 		{
-			givenData:     []byte("127\n14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
+			givenData:     []byte("127\n0,2:3,2:6,4:11,2:14,2:16,3:21,3\n12:34:5467:56\nitwasyou"),
 			givenField:    "field2",
 			givenValue:    []byte("900000"),
 			wantValue:     []byte("900000"),
-			wantData:      []byte("12:900000:1467:56\nitwasyou"),
+			wantData:      []byte("12:900000:5467:56\nitwasyou"),
 			wantNullField: 127,
 			wantLocation: []LocationPair{
-				{14, 2}, {16, 3}, {19, 3},
+				{0, 2}, {3, 6}, {10, 4}, {15, 2}, {18, 2}, {20, 3}, {23, 3},
 			},
 		},
 		{
-			givenData:     []byte("127\n13,2:15,3:18,3\n12:34:146:56\nitwasyou"),
+			// givenData:     []byte("127\n13,2:15,3:18,3\n12:34:146:56\nitwasyou"),
+			givenData:     []byte("127\n0,2:3,2:6,3:10,2:13,2:16,3:21,3\n12:34:146:56\nitwasyou"),
 			givenField:    "field5",
 			givenValue:    []byte("she"),
 			wantValue:     []byte("she"),
 			wantData:      []byte("12:34:146:56\nshewasyou"),
 			wantNullField: 127,
 			wantLocation: []LocationPair{
-				{13, 3}, {16, 3}, {19, 3},
+				{0, 2}, {3, 2}, {6, 3}, {10, 2}, {13, 3}, {16, 3}, {19, 3},
 			},
 		},
 		{
-			givenData:     []byte("127\n13,2:15,3:18,3\n12:34:146:56\nitwasyou"),
+			// givenData:     []byte("127\n13,2:15,3:18,3\n12:34:146:56\nitwasyou"),
+			givenData:     []byte("127\n0,2:3,2:6,3:10,2:13,2:15,3:18,3\n12:34:146:56\nitwasyou"),
 			givenField:    "field7",
 			givenValue:    []byte("he"),
 			wantValue:     []byte("he"),
 			wantData:      []byte("12:34:146:56\nitwashe"),
 			wantNullField: 127,
 			wantLocation: []LocationPair{
-				{13, 2}, {15, 3}, {18, 2},
+				{0, 2}, {3, 2}, {6, 3}, {10, 2}, {13, 2}, {15, 3}, {18, 2},
 			},
 		},
 	}
@@ -339,15 +342,32 @@ func TestNewVarLengthRecord(t *testing.T) {
 		{
 			given: [][]byte{[]byte("12"), []byte("23846"), []byte("-983738"), []byte("83456"), []byte("Hello World")},
 			wantRecord: VarLengthRecord{
-				recordHeader: recordHeader{nullField: 31, location: []LocationPair{{st.Location_T(0), st.Location_T(11)}}},
-				field:        []byte("12:23846:-983738:83456\nHello World"),
+				recordHeader: recordHeader{
+					nullField: 31,
+					location: []LocationPair{
+						{st.Location_T(0), st.Location_T(2)},
+						{st.Location_T(3), st.Location_T(5)},
+						{st.Location_T(9), st.Location_T(7)},
+						{st.Location_T(17), st.Location_T(5)},
+						{st.Location_T(23), st.Location_T(11)},
+					}},
+				field: []byte("12:23846:-983738:83456\nHello World"),
 			},
 		},
 		{
 			given: [][]byte{[]byte("12"), []byte("23846"), []byte("-983738"), []byte(""), []byte("Hello World"), []byte("Power to the People")},
 			wantRecord: VarLengthRecord{
-				recordHeader: recordHeader{nullField: 55, location: []LocationPair{{0, 11}, {12, 19}}},
-				field:        []byte("12:23846:-983738:\nHello WorldPower to the People"),
+				recordHeader: recordHeader{
+					nullField: 55,
+					location: []LocationPair{
+						{st.Location_T(0), st.Location_T(2)},
+						{st.Location_T(3), st.Location_T(5)},
+						{st.Location_T(9), st.Location_T(7)},
+						{st.Location_T(17), st.Location_T(0)},
+						{st.Location_T(18), st.Location_T(11)},
+						{st.Location_T(30), st.Location_T(19)},
+					}},
+				field: []byte("12:23846:-983738:\nHello WorldPower to the People"),
 			},
 		},
 	}
@@ -376,12 +396,13 @@ func TestNewVarLengthRecord(t *testing.T) {
 }
 
 func TestToByte(t *testing.T) {
-	wantData := []byte("127\n14,2:16,3:19,3\n12:34:1467:56\nitwasyou")
+	// wantData := []byte("127\n14,2:16,3:19,3\n12:34:1467:56\nitwasyou")
+	wantData := []byte("127\n0,2:3,2:6,4:11,2:14,2:16,3:21,3\n12:34:1467:56\nitwasyou")
 	// wantByte := 41
 	givenData := recordHeader{
 		nullField: st.NullField_T(127),
 		location: []LocationPair{
-			{14, 2}, {16, 3}, {19, 3},
+			{0, 2}, {3, 2}, {6, 4}, {11, 2}, {14, 2}, {16, 3}, {21, 3},
 		},
 	}
 	record := VarLengthRecord{

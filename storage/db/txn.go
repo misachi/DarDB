@@ -34,7 +34,7 @@ func NewTxnManager() *TransactionManager {
 		catalog := _Catalog
 		if catalog != nil {
 			if _, ok := catalog.db["catalog"]; ok {
-				newTxnID := catalog.maxTblID.Add(1)
+				newTxnID := catalog.maxTxnID.Add(1)
 				catalog.SetMaxTxnId(st.Txn_t(newTxnID))
 				txnID = catalog.MaxTxnId()
 

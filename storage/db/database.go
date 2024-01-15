@@ -96,7 +96,7 @@ func (db *DB) AddRecord(ctx *ClientContext, tbl *Table, data map[string][]byte) 
 			}
 		}
 	}
-	_, err := tbl.AddRecord(fields, fieldVals)
+	_, err := tbl.AddRecord(ctx, fields, fieldVals)
 	if err != nil {
 		return fmt.Errorf("DB AddRecord: %v", err)
 	}
@@ -111,9 +111,9 @@ func (db *DB) GetRecord(ctx *ClientContext, tbl *Table, colName string, colVal [
 	return records, nil
 }
 
-func (db *DB) Flush(tblName string) {
-	db.table[tblName].Flush()
-}
+// func (db *DB) Flush(tblName string) {
+// 	db.table[tblName].Flush()
+// }
 
 // func (db *DB) GetRecord(fieldKey string, fieldVal []byte) st.VarLengthRecord {
 

@@ -4,13 +4,13 @@ type Config struct {
 	bufferSize    uint64
 	walBufferSize uint64
 	dataPath      string
-	walPath       string
+	// walPath       string
 }
 
-func NewConfig(path, walPath string, bufSz, walBufSz uint64) *Config {
+func NewConfig(path string, bufSz, walBufSz uint64) *Config {
 	return &Config{
 		dataPath: path,
-		walPath: walPath,
+		// walPath: walPath,
 		bufferSize: bufSz,
 		walBufferSize: walBufSz,
 	}
@@ -28,6 +28,6 @@ func (c Config) DataPath() string {
 	return c.dataPath
 }
 
-func (c Config) WalDataPath() string {
-	return c.walPath
-}
+// func (c Config) WalDataPath() string {
+// 	return c.walPath
+// }

@@ -4,41 +4,54 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync"
 
 	"github.com/misachi/DarDB/column"
 	cfg "github.com/misachi/DarDB/config"
 
 	row "github.com/misachi/DarDB/storage/db/row"
+	st "github.com/misachi/DarDB/storage"
 )
 
-type db_t uint64
+// type db_t uint64
 
 type DB struct {
-	dbID   db_t
+	dbID   st.DB_t
 	name   string
 	table  map[string]*Table
+	mut    *sync.RWMutex
 	config *cfg.Config
 }
 
 func NewDB(dbName string, cfg *cfg.Config) *DB {
+	var dbID st.DB_t
 	dbPath := path.Join(cfg.DataPath(), dbName)
 	err := os.MkdirAll(dbPath, 0750)
 	if err != nil {
 		return nil
 	}
 
+	catalog := _Catalog
+	if catalog != nil {
+		if  _, ok := catalog.db["catalog"]; ok {
+			newDBID := catalog.maxDbID.Add(1)
+			catalog.SetMaxDbId(st.DB_t(newDBID))
+			dbID = catalog.MaxDbId()
+		}
+	}
+
 	return &DB{
 		name:   dbName,
 		config: cfg,
 		table:  make(map[string]*Table),
+		dbID:   dbID,
 	}
 }
 
-func openRWCreate(file string) (*os.File, error) {
-	return os.OpenFile(file, os.O_CREATE|os.O_RDWR, 0750)
-}
-
 func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE, pkey column.Column) (*Table, error) {
+	if _, ok := db.table[tblName]; ok {
+		return nil, fmt.Errorf("CreateTable: Table already exists")
+	}
 	schema := make([]column.Column, 0)
 
 	varLenKeys := make([]column.Column, 0)

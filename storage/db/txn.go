@@ -152,7 +152,7 @@ func (t *Transaction) startTransaction(cID, tID st.Txn_t) (*Transaction, error) 
 
 func (t *Transaction) unlockAll() error {
 	_bufMgr := GetBufMgr()
-	if bufMgr == nil {
+	if _bufMgr == nil {
 		return fmt.Errorf("unlockAll: Unable to get buffer manager")
 	}
 

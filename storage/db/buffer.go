@@ -18,7 +18,7 @@ type Pool interface {
 	Head() interface{}
 }
 
-var bufMgr *BufferPoolMgr
+var BufMgr *BufferPoolMgr
 
 const (
 	ALIGN      = BLKSIZE
@@ -38,11 +38,11 @@ func alignBlock(sz int64) int64 {
 }
 
 func GetBufMgr() *BufferPoolMgr {
-	if bufMgr != nil {
+	if BufMgr != nil {
 		buf, _ := NewBufferPoolMgr()
 		return buf
 	}
-	return bufMgr
+	return BufMgr
 }
 
 type BufferPoolMgr struct {
@@ -52,18 +52,18 @@ type BufferPoolMgr struct {
 }
 
 func NewBufferPoolMgr() (*BufferPoolMgr, error) {
-	if bufMgr != nil {
-		return bufMgr, nil
+	if BufMgr != nil {
+		return BufMgr, nil
 	}
 	// mgr, err := dsk.NewDiskMgr(tblID)
 	// if err != nil {
 	// 	return nil, fmt.Errorf("NewBufferPoolMgr: Unable to create new file manager %v", err)
 	// }
-	bufMgr = &BufferPoolMgr{
+	BufMgr = &BufferPoolMgr{
 		blkCount:    0, // int64(math.Ceil(float64(alignBlock(mgr.Size()))/BLKSIZE)),
 		block:       ds.NewList(),
 	}
-	return bufMgr, nil
+	return BufMgr, nil
 }
 
 func NewInternalBufferPoolMgr(psize int64, fName string) (*BufferPoolMgr, error) {
@@ -71,12 +71,12 @@ func NewInternalBufferPoolMgr(psize int64, fName string) (*BufferPoolMgr, error)
 	if err != nil {
 		return nil, fmt.Errorf("NewInternalBufferPoolMgr: Unable to create new file manager %v", err)
 	}
-	bufMgr = &BufferPoolMgr{
+	BufMgr = &BufferPoolMgr{
 		blkCount:    int64(math.Ceil(float64(alignBlock(mgr.Size()))/BLKSIZE)),
 		block:       ds.NewList(),
 	}
 
-	return bufMgr, nil
+	return BufMgr, nil
 }
 
 func (buf *BufferPoolMgr) Load(tblID dsk.Tbl_t, loc string) error {
@@ -231,21 +231,21 @@ type BufferPoolMgr2 struct {
 }
 
 func NewBufferPoolMgr2(psize int64, fName string, tblID dsk.Tbl_t) (*BufferPoolMgr, error) {
-	if bufMgr != nil {
-		return bufMgr, nil
+	if BufMgr != nil {
+		return BufMgr, nil
 	}
 	mgr, err := dsk.NewDiskMgr(fName)
 	if err != nil {
 		return nil, fmt.Errorf("NewBufferPoolMgr: Unable to create new manager %v", err)
 	}
-	bufMgr = &BufferPoolMgr{
+	BufMgr = &BufferPoolMgr{
 		blkCount:    int64(math.Ceil(float64(alignBlock(mgr.Size()))/BLKSIZE)), //  alignBlock(mgr.Size()) / BLKSIZE,
 		// diskManager: mgr,
 		block:       ds.NewList(),
 		// freeList:    ds.NewList(),
 		// tblID:       tblID,
 	}
-	return bufMgr, nil
+	return BufMgr, nil
 }
 
 func NewInternalBufferPoolMgr2(psize int64, fName string) (*BufferPoolMgr, error) {
@@ -253,14 +253,14 @@ func NewInternalBufferPoolMgr2(psize int64, fName string) (*BufferPoolMgr, error
 	if err != nil {
 		return nil, fmt.Errorf("BufferPoolMgr: Unable to create new manager %v", err)
 	}
-	bufMgr = &BufferPoolMgr{
+	BufMgr = &BufferPoolMgr{
 		blkCount:    int64(math.Ceil(float64(alignBlock(mgr.Size()))/BLKSIZE)),
 		// diskManager: mgr,
 		block:       ds.NewList(),
 		// freeList:    ds.NewList(),
 	}
 
-	return bufMgr, nil
+	return BufMgr, nil
 }
 
 func (buf *BufferPoolMgr2) NumBlocks() int64 {

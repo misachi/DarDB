@@ -138,7 +138,7 @@ func (buf *BufferPoolMgr) GetBlock(path string, tblId dsk.Tbl_t, blockId dsk.Blk
 	if err != nil {
 		return nil, fmt.Errorf("GetBlock: Read error %v", err)
 	}
-	blk, err := NewBlockWithHDR(blkData)
+	blk, err := NewBlock(blkData, blockId, tblId)
 	if err != nil {
 		return nil, fmt.Errorf("GetBlock: new block error %v", err)
 	}
@@ -304,7 +304,7 @@ func (buf *BufferPoolMgr2) GetBlock(blockId int64) (*Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("GetBlock: Read error %v", err)
 	}
-	blk, err := NewBlockWithHDR(blkData)
+	blk, err := NewBlock(blkData, 0, 0)
 	if err != nil {
 		return nil, fmt.Errorf("GetBlock: new block error %v", err)
 	}

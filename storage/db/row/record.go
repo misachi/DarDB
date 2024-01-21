@@ -50,6 +50,8 @@ func NewLocationPair(offset, size st.Location_T) *LocationPair {
 
 func (l LocationPair) Offset() st.Location_T { return l.offset }
 func (l LocationPair) Size() st.Location_T   { return l.size }
+func (l *LocationPair) SetOffset(offset st.Location_T) { l.offset = offset }
+func (l *LocationPair) SetSize(size st.Location_T) { l.size = size }
 
 type recordHeader struct {
 	isLocked  bool

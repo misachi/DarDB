@@ -333,7 +333,8 @@ func (v VarLengthRecord) GetField(colData ColumnData, key string) []byte {
 	}
 
 	idx, _ := colData.index(key)
-	if !v.fieldIsNull(st.NullField_T(idx)) {
+	colLen := len(colData.keys)
+	if !v.fieldIsNull(st.NullField_T(colLen - (idx + 1))) {
 		if num := column.GetTypeSize(col.Type); num < 0 {
 			location := getFieldLocation(colData, v.location, key)
 
@@ -416,34 +417,37 @@ func (v *VarLengthRecord) UpdateField(colData ColumnData, key string, value []by
 	offset := 0
 
 	location := getFieldLocation(colData, v.location, key)
-	if !isNumber(value) {
-		v.field = append(v.field[:location.offset],
-			append(value, v.field[location.offset+location.size:]...)...)
-		v.updateLocation(idx, *location, location.offset, st.Location_T(len(value)))
-		return
-	}
-
-	if len(value) <= 0 && !v.fieldIsNull(st.NullField_T(idx)) {
-		// Toggle field if value is empty
-		v.nullField ^= (1 << st.NullField_T(idx))
-	}
-
-	for i := 0; i < idx; i++ {
-		_idx := bytes.IndexByte(v.field[offset:], FieldSep)
-		if _idx == -1 {
-			break
+	if location != nil {
+		if !isNumber(value) {
+			v.field = append(v.field[:location.offset],
+				append(value, v.field[location.offset+location.size:]...)...)
+			v.updateLocation(idx, *location, location.offset, st.Location_T(len(value)))
+			return
 		}
-		offset += len(v.field[:_idx+1])
-	}
 
-	_idx := bytes.IndexByte(v.field[offset:], FieldSep)
-	if _idx < 0 {
-		i := bytes.IndexByte(v.field[offset:], Term)
-		v.field = append(v.field[:offset], append(value, v.field[offset+i:]...)...)
-	} else {
-		v.field = append(v.field[:offset], append(value, v.field[offset+_idx:]...)...)
+		colLen := len(colData.keys)
+		if len(value) <= 0 && !v.fieldIsNull(st.NullField_T(colLen - (idx + 1))) {
+			// Toggle field if value is empty
+			v.nullField ^= (1 << st.NullField_T(idx))
+		}
+
+		for i := 0; i < idx; i++ {
+			_idx := bytes.IndexByte(v.field[offset:], FieldSep)
+			if _idx == -1 {
+				break
+			}
+			offset += len(v.field[:_idx+1])
+		}
+
+		_idx := bytes.IndexByte(v.field[offset:], FieldSep)
+		if _idx < 0 {
+			i := bytes.IndexByte(v.field[offset:], Term)
+			v.field = append(v.field[:offset], append(value, v.field[offset+i:]...)...)
+		} else {
+			v.field = append(v.field[:offset], append(value, v.field[offset+_idx:]...)...)
+		}
+		v.updateLocation(idx, *location, location.offset, st.Location_T(len(value)))
 	}
-	v.updateLocation(idx, *location, location.offset, st.Location_T(len(value)))
 }
 
 // TODO: Update FixedLength Record methods

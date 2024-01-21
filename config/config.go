@@ -1,5 +1,7 @@
 package config
 
+var Cfg *Config
+
 type Config struct {
 	bufferSize    uint64
 	walBufferSize uint64
@@ -8,12 +10,16 @@ type Config struct {
 }
 
 func NewConfig(path string, bufSz, walBufSz uint64) *Config {
-	return &Config{
+	if Cfg != nil {
+		return Cfg
+	}
+	Cfg := &Config{
 		dataPath: path,
 		// walPath: walPath,
 		bufferSize: bufSz,
 		walBufferSize: walBufSz,
 	}
+	return Cfg
 }
 
 func (c Config) BufferSize() uint64 {

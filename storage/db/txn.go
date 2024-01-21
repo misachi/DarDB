@@ -87,7 +87,7 @@ func (t *TransactionManager) StartTransaction(ctx * ClientContext) (*Transaction
 
 	txn, err := newTxn.startTransaction(newTxn.commitId, newTxn.transactionId)
 	if err != nil {
-		return nil, fmt.Errorf("StartTransaction: unable to create new transaction")
+		return nil, fmt.Errorf("StartTransaction: unable to create new transaction: %v", err)
 	}
 	t.txnMgrMtx.Lock()
 	defer t.txnMgrMtx.Unlock()
@@ -115,7 +115,7 @@ type Transaction struct {
 }
 
 func NewTransaction(ctx *ClientContext) *Transaction {
-	return &Transaction{state: PENDING, autocommit: false, ctx: ctx}
+	return &Transaction{state: -1, autocommit: false, ctx: ctx}
 }
 
 func (t Transaction) CommitID() st.Txn_t {

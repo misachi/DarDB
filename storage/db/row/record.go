@@ -125,6 +125,8 @@ func NewVarLengthRecord(cols []column.Column, data [][]byte) (*VarLengthRecord, 
 
 func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
 	mu := st.NewLock()
+	copyData := make([]byte, len(data))
+	copy(copyData, data)
 
 	if len(data) < 1 {
 		return &VarLengthRecord{
@@ -133,15 +135,15 @@ func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
 		}, nil
 	}
 
-	termIdx := bytes.IndexByte(data, Term) // first terminator - for nullfield
-	newBuf := bytes.NewReader(data[:termIdx])
+	termIdx := bytes.IndexByte(copyData, Term) // first terminator - for nullfield
+	newBuf := bytes.NewReader(copyData[:termIdx])
 	nField, err := ByteArrayToInt(newBuf)
 	if err != nil {
 		return nil, fmt.Errorf("NewVarLengthRecordWithHDR: %v", err)
 	}
 
-	locationEnd := bytes.IndexByte(data[termIdx+1:], Term)
-	location, err := setLocation(data[termIdx+1 : locationEnd+termIdx+1])
+	locationEnd := bytes.IndexByte(copyData[termIdx+1:], Term)
+	location, err := setLocation(copyData[termIdx+1 : locationEnd+termIdx+1])
 	if err != nil {
 		return nil, fmt.Errorf("NewVarLengthRecordWithHDR: %v", err)
 	}
@@ -153,7 +155,7 @@ func NewVarLengthRecordWithHDR(data []byte) (*VarLengthRecord, error) {
 	}
 	return &VarLengthRecord{
 		recordHeader: recHDR,
-		field:        data[locationEnd+termIdx+2:],
+		field:        copyData[locationEnd+termIdx+2:],
 	}, nil
 }
 

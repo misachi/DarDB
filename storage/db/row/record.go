@@ -194,8 +194,9 @@ func (cd ColumnData) index(name string) (int, error) {
 }
 
 func getFieldLocation(cols ColumnData, location []LocationPair, key string) *LocationPair {
+	locLen := len(location)
 	for i, cKey := range cols.keys {
-		if key == cKey.Name {
+		if key == cKey.Name && i < locLen {
 			return &location[i]
 		}
 	}
@@ -315,12 +316,6 @@ func (v *VarLengthRecord) updateLocation(locIdx int, location LocationPair, offs
 
 				v.location[locIdx].offset = v.location[locIdx-1].offset + v.location[locIdx-1].size
 				prevLoc := v.location[locIdx-1].offset + v.location[locIdx-1].size
-				if locIdx == 2 {
-					fmt.Println(prevLoc+1)
-					fmt.Printf("Fields: %q\n", v.field)
-					fmt.Printf("Byte: %q\n", v.field[10])
-					fmt.Printf("%v\n", (v.field[prevLoc+1] == Term || v.field[prevLoc+1] == FieldSep) || (v.location[locIdx-1].offset == 0))
-				}
 
 				if (v.field[prevLoc] == Term || v.field[prevLoc] == FieldSep) || (v.location[locIdx-1].offset == 0) {
 					v.location[locIdx].offset = v.location[locIdx-1].offset + v.location[locIdx-1].size + 1

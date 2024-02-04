@@ -1,7 +1,6 @@
 package structure
 
 import (
-	"fmt"
 	"testing"
 )
 
@@ -31,7 +30,6 @@ func TestPop(t *testing.T) {
 	}
 
 	elem := l.Pop()
-	fmt.Printf("elem: %v arr[1]: %d\n", elem, arr[2])
 	if elem.(int) != arr[len(arr)-1] {
 		t.Errorf("Pop should get the first element")
 	}

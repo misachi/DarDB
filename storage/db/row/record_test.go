@@ -186,43 +186,47 @@ func TestGetField(t *testing.T) {
 		givenField string
 		wantValue  []byte
 	}
-	// data := []byte("127\n14,2:17,2:20,4:25,2:28,2:31,3:35,3\n12:34:1467:56\nitwasyou")
-	data := []byte("254\n0,2:3,2:6,4:11,2:14,2:16,3:19,3\n12:34:1467:56\nitwasyou")
+
 	values := []valType{
 		{
-			given:      data,
+			given:      []byte("254\n0,2:3,2:6,4:11,2:14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
 			givenField: "field1",
 			wantValue:  []byte("12"),
 		},
 		{
-			given:      data,
+			given:      []byte("254\n0,2:3,2:6,4:11,2:14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
 			givenField: "field2",
 			wantValue:  []byte("34"),
 		},
 		{
-			given:      data,
+			given:      []byte("254\n0,2:3,2:6,4:11,2:14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
 			givenField: "field3",
 			wantValue:  []byte("1467"),
 		},
 		{
-			given:      data,
+			given:      []byte("254\n0,2:3,2:6,4:11,2:14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
 			givenField: "field4",
 			wantValue:  []byte("56"),
 		},
 		{
-			given:      data,
+			given:      []byte("254\n0,2:3,2:6,4:11,2:14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
 			givenField: "field5",
 			wantValue:  []byte("it"),
 		},
 		{
-			given:      data,
+			given:      []byte("254\n0,2:3,2:6,4:11,2:14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
 			givenField: "field6",
 			wantValue:  []byte("was"),
 		},
 		{
-			given:      data,
+			given:      []byte("254\n0,2:3,2:6,4:11,2:14,2:16,3:19,3\n12:34:1467:56\nitwasyou"),
 			givenField: "field8",
 			wantValue:  nil,
+		},
+		{
+			given:      []byte("254\n0,2:3,2:6,4:11,2:14,2:16,3:19,3\n12:34:1467:56"),
+			givenField: "field4",
+			wantValue:  []byte("56"),
 		},
 	}
 

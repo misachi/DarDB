@@ -66,7 +66,7 @@ func startCatalog(cfg *config.Config, catalog *Catalog) {
 		tbl.AddRecord(ctx, colData.Keys(), [][]byte{[]byte("2"), []byte("1"), []byte("tblID")})
 		tbl.AddRecord(ctx, colData.Keys(), [][]byte{[]byte("3"), []byte("1"), []byte("txnID")})
 		tbl.AddRecord(ctx, colData.Keys(), [][]byte{[]byte("4"), []byte("1"), []byte("commitID")})
-		// tbl.Flush()
+		tbl.Flush() // Persist to disk
 	}
 	recs, _ = tbl.GetRecord(ctx, "name", []byte("dbID"))
 	dbID := recs[0].(*row.VarLengthRecord).GetField(colData, "maxID")
@@ -83,14 +83,17 @@ func startCatalog(cfg *config.Config, catalog *Catalog) {
 
 	catalog.maxDbID.Store(uint64(dbIDConv))
 
-	recs, _ = tbl.GetRecord(ctx, "name", []byte("tblID"))
+	recs, err = tbl.GetRecord(ctx, "name", []byte("tblID"))
+	if err != nil {
+		slog.Error("startCatalog: Get table record: %v", err)
+	}
 	tblID := recs[0].GetField(colData, "maxID")
 	tblIDConv, errTbl := strconv.ParseUint(*(*string)(unsafe.Pointer(&tblID)), 10, 64)
 	if errTbl != nil {
 		slog.Error("startCatalog: get max table ID: %v", errTbl)
 		panic(errTbl)
 	}
-	catalog.maxDbID.Store(uint64(tblIDConv))
+	catalog.maxTblID.Store(uint64(tblIDConv))
 
 	recs, _ = tbl.GetRecord(ctx, "name", []byte("txnID"))
 	txnID := recs[0].GetField(colData, "maxID")
@@ -99,7 +102,7 @@ func startCatalog(cfg *config.Config, catalog *Catalog) {
 		slog.Error("startCatalog: get max transaction ID: %v", errTxn)
 		panic(errTxn)
 	}
-	catalog.maxDbID.Store(uint64(txnIDConv))
+	catalog.maxTxnID.Store(uint64(txnIDConv))
 
 	recs, _ = tbl.GetRecord(ctx, "name", []byte("commitID"))
 	commitID := recs[0].GetField(colData, "maxID")

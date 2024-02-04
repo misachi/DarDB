@@ -52,12 +52,11 @@ func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, er
 			// catalog.SetMaxTblId(st.Tbl_t(newTblID))
 			// tblID = catalog.MaxTblId()
 
-			succesful := false
-			for !succesful {
+			successful := false
+			for !successful {
 				oldTblID := catalog.MaxTblId()
-				newTblID := oldTblID + 1
-				tblID = newTblID
-				succesful = catalog.maxTblID.CompareAndSwap(uint64(oldTblID), uint64(newTblID))
+				tblID = oldTblID + 1
+				successful = catalog.maxTblID.CompareAndSwap(uint64(oldTblID), uint64(tblID))
 			}
 		}
 	}

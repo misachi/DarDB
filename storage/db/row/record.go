@@ -352,7 +352,8 @@ func (v VarLengthRecord) GetField(colData ColumnData, key string) []byte {
 		}
 		byteLen := bytes.IndexByte(v.field, Term)
 		if byteLen == -1 {
-			panic("GetField: Invalid record format")
+			// We don't have string'y columns. Get entire data
+			byteLen = len(v.field)
 		}
 		newField := make([]byte, byteLen)
 		copy(newField, v.field[:byteLen])

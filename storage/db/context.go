@@ -57,7 +57,7 @@ func NewClientContext(ctxID uint32, cfg *cfg.Config, db *DB) (*ClientContext, er
 	ctx := &ClientContext{}
 	transaction, err := txnMgr.StartTransaction(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("NewClientContext: Unable to create new context: %v", err)
+		return nil, fmt.Errorf("NewClientContext: Unable to create new transaction: %v", err)
 	}
 	ctx.currentTxn = transaction
 	ctx.txnMgr = txnMgr

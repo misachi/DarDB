@@ -9,8 +9,8 @@ import (
 	"github.com/misachi/DarDB/column"
 	cfg "github.com/misachi/DarDB/config"
 
-	row "github.com/misachi/DarDB/storage/db/row"
 	st "github.com/misachi/DarDB/storage"
+	row "github.com/misachi/DarDB/storage/db/row"
 )
 
 // type db_t uint64
@@ -31,12 +31,18 @@ func NewDB(dbName string, cfg *cfg.Config) *DB {
 		return nil
 	}
 
-	catalog := _Catalog
+	catalog := GetCatalog(cfg)
 	if catalog != nil {
-		if  _, ok := catalog.db["catalog"]; ok {
-			newDBID := catalog.maxDbID.Add(1)
-			catalog.SetMaxDbId(st.DB_t(newDBID))
-			dbID = catalog.MaxDbId()
+		if _, ok := catalog.db["catalog"]; ok {
+			successful := false
+			for !successful {
+				oldDbID := catalog.MaxDbId()
+				dbID = oldDbID + 1
+				successful = catalog.maxDbID.CompareAndSwap(uint64(oldDbID), uint64(dbID))
+			}
+			// newDBID := catalog.maxDbID.Add(1)
+			// catalog.SetMaxDbId(st.DB_t(newDBID))
+			// dbID = catalog.MaxDbId()
 		}
 	}
 
@@ -45,6 +51,7 @@ func NewDB(dbName string, cfg *cfg.Config) *DB {
 		config: cfg,
 		table:  make(map[string]*Table),
 		dbID:   dbID,
+		mut:    &sync.RWMutex{},
 	}
 }
 
@@ -71,8 +78,8 @@ func (db *DB) CreateTable(tblName string, cols map[string]column.SUPPORTED_TYPE,
 		return nil, fmt.Errorf("CreateTable: NewTable error %v", err)
 	}
 	db.mut.Lock()
+	defer db.mut.Unlock()
 	db.table[tblName] = tb
-	db.mut.Unlock()
 	return tb, nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"math"
 	"reflect"
+	"sync/atomic"
 
 	dsk "github.com/misachi/DarDB/storage"
 	ds "github.com/misachi/DarDB/structure"
@@ -38,15 +39,18 @@ func alignBlock(sz int64) int64 {
 }
 
 func GetBufMgr() *BufferPoolMgr {
-	if BufMgr != nil {
-		buf, _ := NewBufferPoolMgr()
+	if BufMgr == nil {
+		buf, err := NewBufferPoolMgr()
+		if err != nil {
+			panic(err)
+		}
 		return buf
 	}
 	return BufMgr
 }
 
 type BufferPoolMgr struct {
-	blkCount int64 // number of blocks
+	blkCount atomic.Int64 // number of blocks
 	block    Pool
 	// freeList Pool
 }
@@ -60,9 +64,11 @@ func NewBufferPoolMgr() (*BufferPoolMgr, error) {
 	// 	return nil, fmt.Errorf("NewBufferPoolMgr: Unable to create new file manager %v", err)
 	// }
 	BufMgr = &BufferPoolMgr{
-		blkCount:    0, // int64(math.Ceil(float64(alignBlock(mgr.Size()))/BLKSIZE)),
-		block:       ds.NewList(),
+		// blkCount: 0, // int64(math.Ceil(float64(alignBlock(mgr.Size()))/BLKSIZE)),
+		block:    ds.NewList(),
 	}
+
+	BufMgr.blkCount.Store(0)
 	return BufMgr, nil
 }
 
@@ -72,10 +78,10 @@ func NewInternalBufferPoolMgr(psize int64, fName string) (*BufferPoolMgr, error)
 		return nil, fmt.Errorf("NewInternalBufferPoolMgr: Unable to create new file manager %v", err)
 	}
 	BufMgr = &BufferPoolMgr{
-		blkCount:    int64(math.Ceil(float64(alignBlock(mgr.Size()))/BLKSIZE)),
-		block:       ds.NewList(),
+		// blkCount: int64(math.Ceil(float64(alignBlock(mgr.Size())) / BLKSIZE)),
+		block:    ds.NewList(),
 	}
-
+	BufMgr.blkCount.Store(int64(math.Ceil(float64(alignBlock(mgr.Size())) / BLKSIZE)))
 	return BufMgr, nil
 }
 
@@ -96,12 +102,11 @@ func (buf *BufferPoolMgr) Load(tblID dsk.Tbl_t, loc string) error {
 			break
 		}
 		blk, err := NewBlock(fData[:BLKSIZE], dsk.Blk_t(blockID), tblID)
-		buf.blkCount += 1
 		if err != nil {
 			return fmt.Errorf("Load: error creating new block %v", err)
 		}
 		key := fmt.Sprintf("%d_%d", tblID, blk.blockId)
-		buf.block.Push(key, blk)
+		buf.AddBlockToPool(key, blk)
 		fData = fData[BLKSIZE:]
 		blockID += 1
 	}
@@ -109,18 +114,18 @@ func (buf *BufferPoolMgr) Load(tblID dsk.Tbl_t, loc string) error {
 }
 
 func (buf *BufferPoolMgr) NumBlocks() int64 {
-	return buf.blkCount
+	return buf.blkCount.Load()
 }
 
 func (buf *BufferPoolMgr) AddBlockToPool(key string, blk *Block) {
-	buf.blkCount += 1
+	buf.blkCount.Add(1)
 	buf.block.Push(key, blk)
 }
 
 func (buf *BufferPoolMgr) GetBlock(path string, tblId dsk.Tbl_t, blockId dsk.Blk_t) (*Block, error) {
 	key := fmt.Sprintf("%d_%d", tblId, blockId)
 
-	if blk := buf.block.Get(key); !reflect.ValueOf(blk.(*Block)).IsNil() {
+	if blk := buf.block.Get(key); blk != nil {
 		return blk.(*Block), nil
 	}
 
@@ -220,7 +225,6 @@ func (buf *BufferPoolMgr) Flush(path string, tblId dsk.Tbl_t) error {
 	return nil
 }
 
-
 type BufferPoolMgr2 struct {
 	poolLength  uint
 	poolSize    int64 // number of blocks
@@ -239,12 +243,13 @@ func NewBufferPoolMgr2(psize int64, fName string, tblID dsk.Tbl_t) (*BufferPoolM
 		return nil, fmt.Errorf("NewBufferPoolMgr: Unable to create new manager %v", err)
 	}
 	BufMgr = &BufferPoolMgr{
-		blkCount:    int64(math.Ceil(float64(alignBlock(mgr.Size()))/BLKSIZE)), //  alignBlock(mgr.Size()) / BLKSIZE,
+		// blkCount: int64(math.Ceil(float64(alignBlock(mgr.Size())) / BLKSIZE)), //  alignBlock(mgr.Size()) / BLKSIZE,
 		// diskManager: mgr,
-		block:       ds.NewList(),
+		block: ds.NewList(),
 		// freeList:    ds.NewList(),
 		// tblID:       tblID,
 	}
+	BufMgr.blkCount.Store(int64(math.Ceil(float64(alignBlock(mgr.Size())) / BLKSIZE)))
 	return BufMgr, nil
 }
 
@@ -254,12 +259,12 @@ func NewInternalBufferPoolMgr2(psize int64, fName string) (*BufferPoolMgr, error
 		return nil, fmt.Errorf("BufferPoolMgr: Unable to create new manager %v", err)
 	}
 	BufMgr = &BufferPoolMgr{
-		blkCount:    int64(math.Ceil(float64(alignBlock(mgr.Size()))/BLKSIZE)),
+		// blkCount: int64(math.Ceil(float64(alignBlock(mgr.Size())) / BLKSIZE)),
 		// diskManager: mgr,
-		block:       ds.NewList(),
+		block: ds.NewList(),
 		// freeList:    ds.NewList(),
 	}
-
+	BufMgr.blkCount.Store(int64(math.Ceil(float64(alignBlock(mgr.Size())) / BLKSIZE)))
 	return BufMgr, nil
 }
 

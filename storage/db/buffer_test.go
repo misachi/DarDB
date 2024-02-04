@@ -23,13 +23,14 @@ func getFile(t *testing.T, tblID st.Tbl_t) string {
 
 func TestNewBufferPoolMgr(t *testing.T) {
 	poolSize := 0
+	BufMgr = nil
 	pmgr, err := NewBufferPoolMgr()
 	if err != nil {
 		t.Errorf("error creating buffer: %v", err)
 	}
 
-	if pmgr.blkCount != int64(poolSize) {
-		t.Errorf("Expected pool size to be %d but got %d", poolSize, pmgr.blkCount)
+	if pmgr.blkCount.Load() != int64(poolSize) {
+		t.Errorf("Expected pool size to be %d but got %d", poolSize, pmgr.blkCount.Load())
 	}
 }
 

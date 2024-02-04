@@ -40,8 +40,8 @@ func load(filePath string, catalog *Catalog) error {
 	return nil
 }
 
-func startCatalog(catalog *Catalog) {
-	cfg := config.NewConfig(".old", 0, 0)
+func startCatalog(cfg *config.Config, catalog *Catalog) {
+	// cfg := config.NewConfig(".old", 0, 0)
 	_db := NewDB("catalog", cfg)
 	schema := map[string]col.SUPPORTED_TYPE{
 		"id":    col.INT64,
@@ -55,24 +55,36 @@ func startCatalog(catalog *Catalog) {
 		panic(err)
 	}
 
+	colData := row.NewColumnData_(
+		[]col.Column{col.NewColumn("id", col.INT64), col.NewColumn("maxID", col.UINT64), col.NewColumn("name", col.STRING)},
+	)
+
 	ctx := GetClientContextMgr().NewClientCtx(cfg, _db)
 	recs, _ := tbl.GetRecord(ctx, "name", []byte("dbID"))
-	colData := row.NewColumnData_(
-		[]col.Column{col.NewColumn("id", col.INT64), col.NewColumn("maxID", col.INT64), col.NewColumn("name", col.INT64)},
-	)
-	dbID := recs[0].GetField(colData, "dbID")
-	dbIDConv, errDB := strconv.ParseUint(*(*string)(unsafe.Pointer(&dbID)), 10, 64)
-	if _db.dbID < 1 {
-		_db.dbID = st.DB_t(dbIDConv) + 1
+	if len(recs) <= 0 {
+		tbl.AddRecord(ctx, colData.Keys(), [][]byte{[]byte("1"), []byte("1"), []byte("dbID")})
+		tbl.AddRecord(ctx, colData.Keys(), [][]byte{[]byte("2"), []byte("1"), []byte("tblID")})
+		tbl.AddRecord(ctx, colData.Keys(), [][]byte{[]byte("3"), []byte("1"), []byte("txnID")})
+		tbl.AddRecord(ctx, colData.Keys(), [][]byte{[]byte("4"), []byte("1"), []byte("commitID")})
+		// tbl.Flush()
 	}
+	recs, _ = tbl.GetRecord(ctx, "name", []byte("dbID"))
+	dbID := recs[0].(*row.VarLengthRecord).GetField(colData, "maxID")
+	dbIDConv, errDB := strconv.ParseUint(*(*string)(unsafe.Pointer(&dbID)), 10, 64)
 
 	if errDB != nil {
 		slog.Error("startCatalog: get max DB ID: %v", errDB)
 		panic(errDB)
 	}
+
+	if _db.dbID < 1 {
+		_db.dbID = st.DB_t(dbIDConv) + 1
+	}
+
 	catalog.maxDbID.Store(uint64(dbIDConv))
 
-	tblID := recs[0].GetField(colData, "tblID")
+	recs, _ = tbl.GetRecord(ctx, "name", []byte("tblID"))
+	tblID := recs[0].GetField(colData, "maxID")
 	tblIDConv, errTbl := strconv.ParseUint(*(*string)(unsafe.Pointer(&tblID)), 10, 64)
 	if errTbl != nil {
 		slog.Error("startCatalog: get max table ID: %v", errTbl)
@@ -80,7 +92,8 @@ func startCatalog(catalog *Catalog) {
 	}
 	catalog.maxDbID.Store(uint64(tblIDConv))
 
-	txnID := recs[0].GetField(colData, "txnID")
+	recs, _ = tbl.GetRecord(ctx, "name", []byte("txnID"))
+	txnID := recs[0].GetField(colData, "maxID")
 	txnIDConv, errTxn := strconv.ParseUint(*(*string)(unsafe.Pointer(&txnID)), 10, 64)
 	if errTxn != nil {
 		slog.Error("startCatalog: get max transaction ID: %v", errTxn)
@@ -88,7 +101,8 @@ func startCatalog(catalog *Catalog) {
 	}
 	catalog.maxDbID.Store(uint64(txnIDConv))
 
-	commitID := recs[0].GetField(colData, "commitID")
+	recs, _ = tbl.GetRecord(ctx, "name", []byte("commitID"))
+	commitID := recs[0].GetField(colData, "maxID")
 	commitIDConv, errCommitID := strconv.ParseUint(*(*string)(unsafe.Pointer(&commitID)), 10, 64)
 	if errCommitID != nil {
 		slog.Error("startCatalog: get max commit ID: %v", errCommitID)
@@ -96,41 +110,40 @@ func startCatalog(catalog *Catalog) {
 	}
 	catalog.maxCommitID.Store(uint64(commitIDConv))
 
-	_db.mut.Lock()
+	// _db.mut.Lock()
 	_db.table[tbl.info.Name] = tbl
-	_db.mut.Unlock()
+	// _db.mut.Unlock()
 
 	if _Catalog == nil {
 		_Catalog = catalog
 	}
 
-	catalog.mut.Lock()
+	// catalog.mut.Lock()
+	catalog.db = make(map[string]*DB)
 	catalog.db[_db.name] = _db
-	catalog.mut.Unlock()
+	// catalog.mut.Unlock()
 
 	ctx.Close()
 }
 
-func NewCatalog() *Catalog {
+func NewCatalog(cfg *config.Config) *Catalog {
 	if _Catalog != nil {
 		return _Catalog
 	}
 	catalog := &Catalog{mut: &sync.Mutex{}}
 	_Catalog = catalog
-	startCatalog(catalog)
+	startCatalog(cfg, catalog)
 	return catalog
 }
 
-func GetCatalog() *Catalog {
+func GetCatalog(cfg *config.Config) *Catalog {
 	if _Catalog == nil {
-		return NewCatalog()
+		return NewCatalog(cfg)
 	}
 	return _Catalog
 }
 
 func (cat *Catalog) SetMaxTblId(tblId st.Tbl_t) error {
-	cat.mut.Lock()
-	defer cat.mut.Unlock()
 	if st.Tbl_t(cat.maxTblID.Load()) > tblId {
 		return fmt.Errorf("SetMaxTblId: Cannot set max ID with lower ID number")
 	}
@@ -139,8 +152,6 @@ func (cat *Catalog) SetMaxTblId(tblId st.Tbl_t) error {
 }
 
 func (cat *Catalog) SetMaxDbId(dbId st.DB_t) error {
-	cat.mut.Lock()
-	defer cat.mut.Unlock()
 	if st.DB_t(cat.maxDbID.Load()) > dbId {
 		return fmt.Errorf("SetMaxDbId: Cannot set max ID with lower ID number")
 	}
@@ -149,8 +160,14 @@ func (cat *Catalog) SetMaxDbId(dbId st.DB_t) error {
 }
 
 func (cat *Catalog) SetMaxTxnId(txnId st.Txn_t) error {
-	cat.mut.Lock()
-	defer cat.mut.Unlock()
+	if st.Txn_t(cat.maxTxnID.Load()) > txnId {
+		return fmt.Errorf("SetMaxTxnId: Cannot set max ID with lower ID number")
+	}
+	cat.maxTxnID.Store(uint64(txnId))
+	return nil
+}
+
+func (cat *Catalog) CompareAndSwapMaxTxnId(txnId st.Txn_t) error {
 	if st.Txn_t(cat.maxTxnID.Load()) > txnId {
 		return fmt.Errorf("SetMaxTxnId: Cannot set max ID with lower ID number")
 	}
@@ -159,8 +176,6 @@ func (cat *Catalog) SetMaxTxnId(txnId st.Txn_t) error {
 }
 
 func (cat *Catalog) SetMaxCommitId(commitId st.Txn_t) error {
-	cat.mut.Lock()
-	defer cat.mut.Unlock()
 	if st.Txn_t(cat.maxCommitID.Load()) > commitId {
 		return fmt.Errorf("SetCommitId: Cannot set max ID with lower ID number")
 	}

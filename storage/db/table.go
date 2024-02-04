@@ -37,7 +37,7 @@ func openRWCreate(file string) (*os.File, error) {
 }
 
 func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, error) {
-	tblPath := path.Join(cfg.DataPath(), dbName, tblInfo.Name, fmt.Sprintf("%s.data", tblInfo.Name))
+	tblPath := path.Join(cfg.DataPath(), dbName, fmt.Sprintf("%s.data", tblInfo.Name))
 	// tblID := dbName // & 0xffffffff
 	// tblID += 1
 	// m, err := NewBufferPoolMgr(0, tblPath, st.Tbl_t(tblID))
@@ -45,40 +45,48 @@ func NewTable(dbName string, tblInfo *TableInfo, cfg *config.Config) (*Table, er
 	// 	return nil, fmt.Errorf("NewTable: unable to create a new manager\n %v", err)
 	// }
 	var tblID st.Tbl_t
-	catalog := _Catalog
+	catalog := GetCatalog(cfg)
 	if catalog != nil {
 		if _, ok := catalog.db["catalog"]; ok {
-			newTblID := catalog.maxTblID.Add(1)
-			catalog.SetMaxTblId(st.Tbl_t(newTblID))
-			tblID = catalog.MaxTblId()
+			// newTblID := catalog.maxTblID.Add(1)
+			// catalog.SetMaxTblId(st.Tbl_t(newTblID))
+			// tblID = catalog.MaxTblId()
+
+			succesful := false
+			for !succesful {
+				oldTblID := catalog.MaxTblId()
+				newTblID := oldTblID + 1
+				tblID = newTblID
+				succesful = catalog.maxTblID.CompareAndSwap(uint64(oldTblID), uint64(newTblID))
+			}
 		}
 	}
 
 	tblInfo.Location = tblPath
 
-	tID := fmt.Sprintf("%d", tblID)
-	infoDir := path.Join(cfg.DataPath(), dbName)
-	dataDir := path.Join(cfg.DataPath(), dbName, ".meta")
-	err := os.MkdirAll(infoDir, 0750)
-	if err != nil {
-		return nil, fmt.Errorf("CreateTable: MkdirAll infoDir error %v", err)
-	}
-	err = os.MkdirAll(dataDir, 0750)
+	// tID := fmt.Sprintf("%d", tblID)
+	// infoDir := path.Join(cfg.DataPath(), dbName)
+	dataDir := path.Join(cfg.DataPath(), dbName)
+	// err := os.MkdirAll(infoDir, 0750)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("CreateTable: MkdirAll infoDir error %v", err)
+	// }
+	err := os.MkdirAll(dataDir, 0750)
 	if err != nil {
 		return nil, fmt.Errorf("CreateTable: MkdirAll dataDir error %v", err)
 	}
 
-	dataFile, err := openRWCreate(path.Join(dataDir, fmt.Sprintf("%s.meta", tID)))
+	dataFile, err := openRWCreate(path.Join(dataDir, fmt.Sprintf("%s.data", tblInfo.Name)))
 	if err != nil {
 		return nil, fmt.Errorf("CreateTable: data file error %v", err)
 	}
 	defer dataFile.Close()
 
-	infoFile, err := openRWCreate(path.Join(infoDir, fmt.Sprintf("%s.data", tID)))
-	if err != nil {
-		return nil, fmt.Errorf("CreateTable: meta file error %v", err)
-	}
-	defer infoFile.Close()
+	// infoFile, err := openRWCreate(path.Join(infoDir, fmt.Sprintf("%s.data", tblInfo.Name)))
+	// if err != nil {
+	// 	return nil, fmt.Errorf("CreateTable: meta file error %v", err)
+	// }
+	// defer infoFile.Close()
 
 	return &Table{
 		// internalBuf: m,
@@ -139,6 +147,7 @@ func (tbl *Table) GetRecord(ctx *ClientContext, colName string, colValue []byte)
 		if err != nil {
 			return nil, fmt.Errorf("GetRecord: GetBlock: %v", err)
 		}
+		// fmt.Printf("Block: %q\n", blk.records)
 		rec, err := blk.FilterRecords(ctx, row.NewColumnData_(tbl.info.Column), colName, colValue)
 		// txn := ctx.CurrentTxn()
 		// txn.TxnReadRecords(rec)

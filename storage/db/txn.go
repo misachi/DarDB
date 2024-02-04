@@ -20,8 +20,8 @@ const (
 )
 
 type TransactionManager struct {
-	maxCommitId        st.Txn_t
-	maxTxnID           st.Txn_t
+	// maxCommitId        st.Txn_t
+	// maxTxnID           st.Txn_t
 	txnMgrMtx          *sync.Mutex
 	ActiveTransactions []*Transaction
 	DeleteTransactions []*Transaction
@@ -29,39 +29,39 @@ type TransactionManager struct {
 
 func NewTxnManager() *TransactionManager {
 	if TxnMgr == nil {
-		var txnID st.Txn_t
-		var commitID st.Txn_t
-		catalog := _Catalog
-		if catalog != nil {
-			if _, ok := catalog.db["catalog"]; ok {
-				newTxnID := catalog.maxTxnID.Add(1)
-				catalog.SetMaxTxnId(st.Txn_t(newTxnID))
-				txnID = catalog.MaxTxnId()
+		// var txnID st.Txn_t
+		// var commitID st.Txn_t
+		// catalog := _Catalog
+		// if catalog != nil {
+		// 	if _, ok := catalog.db["catalog"]; ok {
+		// 		newTxnID := catalog.maxTxnID.Add(1)
+		// 		catalog.SetMaxTxnId(st.Txn_t(newTxnID))
+		// 		txnID = catalog.MaxTxnId()
 
-				newCommitID := catalog.maxCommitID.Add(1)
-				catalog.SetMaxCommitId(st.Txn_t(newCommitID))
-				commitID = catalog.MaxCommitId()
-			}
-		}
+		// 		newCommitID := catalog.maxCommitID.Add(1)
+		// 		catalog.SetMaxCommitId(st.Txn_t(newCommitID))
+		// 		commitID = catalog.MaxCommitId()
+		// 	}
+		// }
 		TxnMgr = &TransactionManager{
 			ActiveTransactions: make([]*Transaction, 0),
 			DeleteTransactions: make([]*Transaction, 0),
 			txnMgrMtx:          &sync.Mutex{},
-			maxTxnID:           txnID,
-			maxCommitId:        commitID,
+			// maxTxnID:           txnID,
+			// maxCommitId:        commitID,
 		}
 		return TxnMgr
 	}
 	return TxnMgr
 }
 
-func (tM TransactionManager) MaxCommitID() st.Txn_t {
-	return tM.maxCommitId
-}
+// func (tM TransactionManager) MaxCommitID() st.Txn_t {
+// 	return tM.maxCommitId
+// }
 
-func (tM TransactionManager) MaxTxnID() st.Txn_t {
-	return tM.maxTxnID
-}
+// func (tM TransactionManager) MaxTxnID() st.Txn_t {
+// 	return tM.maxTxnID
+// }
 
 func (tM *TransactionManager) EndTransaction(transaction *Transaction) {
 	for idx, txn := range tM.ActiveTransactions {
@@ -75,6 +75,7 @@ func (tM *TransactionManager) EndTransaction(transaction *Transaction) {
 
 func (t *TransactionManager) StartTransaction(ctx * ClientContext) (*Transaction, error) {
 	newTxn := NewTransaction(ctx)
+	catalog := GetCatalog(ctx.config)
 	// newTxn.commitId++
 	// if newTxn.commitId <= 0 {
 	// 	newTxn.transactionId = t.maxTxnID
@@ -82,13 +83,21 @@ func (t *TransactionManager) StartTransaction(ctx * ClientContext) (*Transaction
 	// 	newTxn.transactionId = newTxn.commitId
 	// }
 
-	newTxn.transactionId = t.maxTxnID
-	newTxn.commitId = t.maxCommitId
+	if catalog != nil {
+		successful := false
+		for !successful {
+			oldTxnID := catalog.MaxTxnId()
+			newTxnID := oldTxnID + 1
+			newTxn.transactionId = catalog.MaxTxnId()
+			successful = catalog.maxTxnID.CompareAndSwap(uint64(oldTxnID), uint64(newTxnID))
+		}
+	}
 
 	txn, err := newTxn.startTransaction(newTxn.commitId, newTxn.transactionId)
 	if err != nil {
 		return nil, fmt.Errorf("StartTransaction: unable to create new transaction: %v", err)
 	}
+
 	t.txnMgrMtx.Lock()
 	defer t.txnMgrMtx.Unlock()
 	t.ActiveTransactions = append(t.ActiveTransactions, txn)
@@ -107,9 +116,9 @@ type transactionRecord struct {
 
 type Transaction struct {
 	autocommit    bool
+	state         int
 	transactionId st.Txn_t
 	commitId      st.Txn_t
-	state         int
 	ctx           *ClientContext
 	dataList      []transactionRecord
 }

@@ -193,6 +193,10 @@ func (cd ColumnData) index(name string) (int, error) {
 	return -1, ErrColumnDoesNotExist
 }
 
+func (cd ColumnData) Keys() []column.Column {
+	return cd.keys
+}
+
 func getFieldLocation(cols ColumnData, location []LocationPair, key string) *LocationPair {
 	locLen := len(location)
 	for i, cKey := range cols.keys {
@@ -329,7 +333,7 @@ func (v *VarLengthRecord) updateLocation(locIdx int, location LocationPair, offs
 func (v VarLengthRecord) GetField(colData ColumnData, key string) []byte {
 	col, err := colData.column(key)
 	if err != nil {
-		return nil
+		panic("GetField: key not allowed")
 	}
 
 	idx, _ := colData.index(key)
@@ -339,7 +343,7 @@ func (v VarLengthRecord) GetField(colData ColumnData, key string) []byte {
 			location := getFieldLocation(colData, v.location, key)
 
 			if location == nil {
-				return nil
+				panic("GetField: Location is missing")
 			}
 
 			newField := make([]byte, location.size)
@@ -348,7 +352,7 @@ func (v VarLengthRecord) GetField(colData ColumnData, key string) []byte {
 		}
 		byteLen := bytes.IndexByte(v.field, Term)
 		if byteLen == -1 {
-			return nil
+			panic("GetField: Invalid record format")
 		}
 		newField := make([]byte, byteLen)
 		copy(newField, v.field[:byteLen])

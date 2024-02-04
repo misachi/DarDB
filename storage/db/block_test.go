@@ -248,7 +248,7 @@ func TestRecords(t *testing.T) {
 		},
 	}
 
-	cfg := config.NewConfig("/", 1, 1)
+	cfg := config.NewConfig(t.TempDir(), 1, 1)
 	db := NewDB("test", cfg)
 	ctx := GetClientContextMgr().NewClientCtx(cfg, db)
 	recs, err := value.given.Records(ctx)
@@ -296,7 +296,7 @@ func TestFilterRecords(t *testing.T) {
 		{Name: "id7", Type: column.STRING},
 	}
 	colData := row.NewColumnData_(cols)
-	cfg := config.NewConfig("/", 1, 1)
+	cfg := config.NewConfig(t.TempDir(), 1, 1)
 	db := NewDB("test", cfg)
 	ctx := GetClientContextMgr().NewClientCtx(cfg, db)
 	recs, err := value.given.FilterRecords(ctx, colData, "id6", []byte("was"))
@@ -347,7 +347,7 @@ func TestUpdateFiteredRecords(t *testing.T) {
 		{Name: "id7", Type: column.STRING},
 	}
 	colData := row.NewColumnData_(cols)
-	cfg := config.NewConfig("/", 1, 1)
+	cfg := config.NewConfig(t.TempDir(), 1, 1)
 	db := NewDB("test", cfg)
 	ctx := GetClientContextMgr().NewClientCtx(cfg, db)
 	err := value.given.UpdateFiteredRecords(ctx, colData, "id6", []byte("was"), []byte("be"))
@@ -396,7 +396,7 @@ func TestUpdateRecords(t *testing.T) {
 		{Name: "id7", Type: column.STRING},
 	}
 	colData := row.NewColumnData_(cols)
-	cfg := config.NewConfig("/", 1, 1)
+	cfg := config.NewConfig(t.TempDir(), 1, 1)
 	db := NewDB("test", cfg)
 	ctx := GetClientContextMgr().NewClientCtx(cfg, db)
 	err := value.given.UpdateRecords(ctx, colData, "id6", []byte("wasn't"))

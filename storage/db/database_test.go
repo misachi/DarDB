@@ -90,17 +90,17 @@ func TestGetRecord(t *testing.T) {
 		{
 			givenData: []map[string][]byte{
 				{
-					"id1": []byte("2"),
+					"id1": []byte("1"),
 					"id2": []byte("10"),
 				},
 				{
-					"id1": []byte("6"),
+					"id1": []byte("8"),
 					"id2": []byte("15"),
 				},
 			},
 			givenColName:   "id1",
-			givenSearchKey: []byte("2"),
-			wantRecord:     []byte("3\n0,1:2,2\n2:10"),
+			givenSearchKey: []byte("8"),
+			wantRecord:     []byte("3\n0,1:2,2\n8:15"),
 			wantRecordLen:  1,
 		},
 		{

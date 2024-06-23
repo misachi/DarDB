@@ -128,6 +128,7 @@ func (tbl *Table) AddRecord(ctx *ClientContext, cols []column.Column, fieldVals 
 	if err := blk.AddRecord(record); err != nil {
 		return false, fmt.Errorf("AddRecord: %v", err)
 	}
+	bufMgr.WriteBlock(tbl.info.Location, tbl.tblID, blk.BlockID())
 
 	return true, nil
 }

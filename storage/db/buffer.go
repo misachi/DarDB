@@ -192,7 +192,7 @@ func (buf *BufferPoolMgr) writeBlock(path string, blk *Block) {
 		panic(fmt.Sprintf("flushBlock Seek: %v", err))
 	}
 
-	if _, err = mgr.Write(blk.ToByte()); err != nil {
+	if _, err = mgr.Write(blk.ToByte(), mgr.Size()); err != nil {
 		panic(fmt.Sprintf("flushBlock Write: %v", err))
 	}
 
@@ -357,7 +357,7 @@ func (buf *BufferPoolMgr2) flushBlock(blockID int, blk *Block) error {
 		return fmt.Errorf("flushBlock Seek: %v", err)
 	}
 
-	_, err = buf.diskManager.Write(blk.ToByte())
+	_, err = buf.diskManager.Write(blk.ToByte(), 0)
 	if err != nil {
 		return fmt.Errorf("flushBlock Write: %v", err)
 	}

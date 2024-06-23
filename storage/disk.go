@@ -34,14 +34,14 @@ func (d *DiskMgr) Seek(offset int64, whence int) (int64, error) {
 	return d.file.Seek(offset, whence)
 }
 
-func (d *DiskMgr) Write(p []byte) (n int, err error) {
+func (d *DiskMgr) Write(p []byte, off int64) (n int, err error) {
 	fInfo, _ := d.file.Stat()
 	fSize := fInfo.Size()
 
 	if fSize <= 0 {
 		return d.file.Write(p)
 	}
-	return d.file.WriteAt(p, 0)
+	return d.file.WriteAt(p, off)
 }
 
 func (d *DiskMgr) Flush() error {
